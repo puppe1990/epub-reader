@@ -136,22 +136,22 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
     <div className="relative w-full h-full flex items-center justify-center bg-zinc-50">
       <button
         onClick={handlePrev}
-        className="absolute left-4 z-10 p-3 rounded-full bg-white/80 shadow-md hover:bg-white text-zinc-600 hover:text-zinc-900 transition-all"
+        className="absolute left-2 sm:left-4 z-10 p-2 sm:p-3 rounded-full bg-white/80 shadow-md hover:bg-white text-zinc-600 hover:text-zinc-900 transition-all"
       >
-        <ChevronLeft size={24} />
+        <ChevronLeft size={20} className="sm:w-6 sm:h-6" />
       </button>
 
-      <div ref={viewerRef} className="w-full h-full max-w-4xl mx-auto px-16 py-8" />
+      <div ref={viewerRef} className="w-full h-full max-w-4xl mx-auto px-8 sm:px-16 py-4 sm:py-8" />
 
       <button
         onClick={handleNext}
-        className="absolute right-4 z-10 p-3 rounded-full bg-white/80 shadow-md hover:bg-white text-zinc-600 hover:text-zinc-900 transition-all"
+        className="absolute right-2 sm:right-4 z-10 p-2 sm:p-3 rounded-full bg-white/80 shadow-md hover:bg-white text-zinc-600 hover:text-zinc-900 transition-all"
       >
-        <ChevronRight size={24} />
+        <ChevronRight size={20} className="sm:w-6 sm:h-6" />
       </button>
 
       {pageInfo && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 px-3 py-1.5 rounded-full bg-zinc-900/80 text-white text-xs sm:text-sm backdrop-blur">
+        <div className="absolute bottom-3 sm:bottom-4 left-1/2 -translate-x-1/2 z-10 px-3 py-1.5 rounded-full bg-zinc-900/80 text-white text-xs sm:text-sm backdrop-blur">
           {pageInfo.current} / {pageInfo.total}
         </div>
       )}

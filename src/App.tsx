@@ -163,10 +163,10 @@ export default function App() {
 
   if (!activeBookId) {
     return (
-      <div className="min-h-screen bg-zinc-100 font-sans">
-        <header className="h-16 bg-white border-b border-zinc-200 flex items-center justify-between px-4 sm:px-6">
-          <h1 className="text-lg sm:text-xl font-semibold text-zinc-900">Your Library</h1>
-          <label className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 cursor-pointer transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+      <div className="min-h-dvh bg-zinc-100 font-sans">
+        <header className="bg-white border-b border-zinc-200 flex items-center justify-between gap-3 px-4 py-3 sm:px-6">
+          <h1 className="text-base sm:text-xl font-semibold text-zinc-900">Your Library</h1>
+          <label className="inline-flex items-center gap-2 px-3 py-2 text-xs sm:text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 cursor-pointer transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
             {isUploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
             {isUploading ? 'Processing...' : 'Upload EPUB/PDF'}
             <input
@@ -187,7 +187,7 @@ export default function App() {
               <p className="text-sm mt-1">Faça upload de um EPUB ou PDF para começar.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-5">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-5">
               {books.map((book) => (
                 <button
                   key={book.id}
@@ -206,7 +206,7 @@ export default function App() {
                       {book.format || 'epub'}
                     </span>
                     <button
-                      className="absolute top-2 right-2 p-1.5 rounded-md bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="absolute top-2 right-2 p-1.5 rounded-md bg-black/60 text-white opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleDeleteBook(book.id);
@@ -229,9 +229,9 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen w-full bg-zinc-100 overflow-hidden font-sans">
+    <div className="flex h-dvh w-full bg-zinc-100 overflow-hidden font-sans">
       <div className="flex-1 flex flex-col h-full min-w-0">
-        <header className="h-16 bg-white border-b border-zinc-200 flex items-center justify-between px-4 shadow-sm z-10">
+        <header className="bg-white border-b border-zinc-200 flex items-center justify-between gap-2 px-3 py-2 sm:px-4 shadow-sm z-10">
           <div className="flex items-center gap-3 min-w-0">
             <button
               onClick={handleBackToLibrary}
@@ -239,43 +239,45 @@ export default function App() {
             >
               <ArrowLeft size={20} />
             </button>
-            <h2 className="text-lg font-semibold text-zinc-800 truncate max-w-[200px] md:max-w-md">
+            <h2 className="text-sm sm:text-lg font-semibold text-zinc-800 truncate max-w-[140px] sm:max-w-md">
               {activeBook ? activeBook.title : 'Reader'}
             </h2>
           </div>
 
-          <div className="flex items-center gap-2">
-            <div className="hidden md:flex bg-zinc-100 p-1 rounded-lg border border-zinc-200">
+          <div className="flex items-center gap-1 sm:gap-2">
+            <div className="flex bg-zinc-100 p-1 rounded-lg border border-zinc-200">
               <button
                 onClick={() => setViewMode('reader')}
-                className={`flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md transition-all ${
+                className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${
                   viewMode === 'reader'
                     ? 'bg-white text-indigo-600 shadow-sm'
                     : 'text-zinc-500 hover:text-zinc-700'
                 }`}
               >
-                <BookOpen size={16} /> Reader
+                <BookOpen size={14} className="sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">Reader</span>
               </button>
               {isActiveEpub && (
                 <button
                   onClick={() => setViewMode('markdown')}
-                  className={`flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md transition-all ${
+                  className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${
                     viewMode === 'markdown'
                       ? 'bg-white text-indigo-600 shadow-sm'
                       : 'text-zinc-500 hover:text-zinc-700'
                   }`}
                 >
-                  <FileText size={16} /> Markdown
+                  <FileText size={14} className="sm:w-4 sm:h-4" />
+                  <span className="hidden sm:inline">Markdown</span>
                 </button>
               )}
             </div>
 
             {viewMode === 'reader' && isActiveEpub && (
-              <div className="flex items-center gap-2 ml-2">
+              <div className="flex items-center gap-1 sm:gap-2 ml-1 sm:ml-2">
                 <button
                   onClick={handleConvertChapter}
                   disabled={isConverting}
-                  className="hidden sm:flex items-center gap-2 px-3 py-2 text-sm font-medium text-zinc-700 bg-white border border-zinc-300 rounded-lg hover:bg-zinc-50 transition-colors disabled:opacity-50"
+                  className="hidden md:flex items-center gap-2 px-3 py-2 text-sm font-medium text-zinc-700 bg-white border border-zinc-300 rounded-lg hover:bg-zinc-50 transition-colors disabled:opacity-50"
                 >
                   {isConverting ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}
                   Convert Chapter
@@ -283,9 +285,9 @@ export default function App() {
                 <button
                   onClick={handleConvertBook}
                   disabled={isConverting}
-                  className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                  className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 text-xs sm:text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
                 >
-                  {isConverting ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}
+                  {isConverting ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}
                   <span className="hidden sm:inline">Convert Book</span>
                   <span className="sm:hidden">Convert</span>
                 </button>

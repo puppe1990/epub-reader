@@ -29,27 +29,27 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ markdown, title 
 
   return (
     <div className="w-full h-full flex flex-col bg-white">
-      <div className="flex items-center justify-between p-4 border-b border-zinc-200 bg-zinc-50">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 sm:p-4 border-b border-zinc-200 bg-zinc-50">
         <h2 className="text-sm font-medium text-zinc-700">Markdown Preview</h2>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
           <button
             onClick={handleCopy}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-zinc-600 hover:text-zinc-900 bg-white border border-zinc-200 rounded-md hover:bg-zinc-50 transition-colors"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-zinc-600 hover:text-zinc-900 bg-white border border-zinc-200 rounded-md hover:bg-zinc-50 transition-colors"
           >
             {copied ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
             {copied ? 'Copied!' : 'Copy'}
           </button>
           <button
             onClick={handleDownload}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md transition-colors"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md transition-colors"
           >
             <Download size={16} />
             Download .md
           </button>
         </div>
       </div>
-      <div className="flex-1 overflow-auto p-6 bg-zinc-50">
-        <pre className="max-w-4xl mx-auto p-6 bg-white rounded-xl shadow-sm border border-zinc-200 whitespace-pre-wrap font-mono text-sm text-zinc-800 leading-relaxed">
+      <div className="flex-1 overflow-auto p-3 sm:p-6 bg-zinc-50">
+        <pre className="max-w-4xl mx-auto p-4 sm:p-6 bg-white rounded-xl shadow-sm border border-zinc-200 whitespace-pre-wrap font-mono text-xs sm:text-sm text-zinc-800 leading-relaxed">
           {markdown || 'No content to display.'}
         </pre>
       </div>
