@@ -24,6 +24,7 @@ export default function App() {
   const [viewMode, setViewMode] = useState<'reader' | 'markdown'>('reader');
   const [markdownContent, setMarkdownContent] = useState('');
   const [isConverting, setIsConverting] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
     loadBooks();
@@ -38,6 +39,7 @@ export default function App() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setIsUploading(true);
     try {
       const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
       const isEpub = file.type === 'application/epub+zip' || file.name.toLowerCase().endsWith('.epub');
@@ -50,6 +52,7 @@ export default function App() {
       let title = file.name.replace(/\.[^.]+$/, '');
       let author = isPdf ? 'PDF Document' : 'Unknown Author';
       let coverUrl: string | undefined;
+      let selectedBookId: string | null = null;
 
       if (isEpub) {
         const { parseEpubMetadata } = await import('./services/epubService');
@@ -57,14 +60,39 @@ export default function App() {
         title = metadata.title;
         author = metadata.author;
         coverUrl = metadata.coverUrl;
+        const newBook = await saveBook(file, title, author, 'epub', coverUrl);
+        selectedBookId = newBook.id;
+      } else {
+        const pdfBook = await saveBook(file, title, author, 'pdf');
+        selectedBookId = pdfBook.id;
+
+        try {
+          const { convertPdfToEpubFile } = await import('./services/pdfToEpubService');
+          const convertedEpubFile = await convertPdfToEpubFile(file, {
+            title: `${title} (Converted)`,
+            author,
+          });
+          const convertedBook = await saveBook(
+            convertedEpubFile,
+            `${title} (Converted)`,
+            author,
+            'epub',
+          );
+          selectedBookId = convertedBook.id;
+        } catch (pdfConversionError) {
+          console.error('Failed to convert PDF to EPUB:', pdfConversionError);
+          alert('PDF uploaded, but automatic EPUB conversion failed for this file.');
+        }
       }
 
-      const newBook = await saveBook(file, title, author, isPdf ? 'pdf' : 'epub', coverUrl);
       await loadBooks();
-      handleSelectBook(newBook.id);
+      if (selectedBookId) await handleSelectBook(selectedBookId);
     } catch (error) {
       console.error('Error uploading book:', error);
-      alert('Failed to upload EPUB file.');
+      alert('Failed to upload file.');
+    } finally {
+      setIsUploading(false);
+      e.target.value = '';
     }
   };
 
@@ -138,10 +166,16 @@ export default function App() {
       <div className="min-h-screen bg-zinc-100 font-sans">
         <header className="h-16 bg-white border-b border-zinc-200 flex items-center justify-between px-4 sm:px-6">
           <h1 className="text-lg sm:text-xl font-semibold text-zinc-900">Your Library</h1>
-          <label className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 cursor-pointer transition-colors">
-            <Upload size={16} />
-            Upload EPUB/PDF
-            <input type="file" accept=".epub,.pdf,application/epub+zip,application/pdf" className="hidden" onChange={handleUpload} />
+          <label className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 cursor-pointer transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+            {isUploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+            {isUploading ? 'Processing...' : 'Upload EPUB/PDF'}
+            <input
+              type="file"
+              accept=".epub,.pdf,application/epub+zip,application/pdf"
+              className="hidden"
+              onChange={handleUpload}
+              disabled={isUploading}
+            />
           </label>
         </header>
 
