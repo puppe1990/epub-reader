@@ -12,12 +12,17 @@ interface SpineLike {
   spineItems?: SpineItemLike[];
 }
 
-const getSpine = (book: Book): SpineLike => book.spine as unknown as SpineLike;
+const getSpine = (book: Book): SpineLike | null => {
+  const spine = (book as any)?.spine;
+  if (!spine || typeof spine.get !== 'function') return null;
+  return spine as SpineLike;
+};
 
 const normalizeHref = (href: string): string => href.split('#')[0].trim();
 
 const resolveSpineItemByHref = (book: Book, href: string): SpineItemLike | null => {
   const spine = getSpine(book);
+  if (!spine) return null;
   const cleanHref = normalizeHref(href);
   if (!cleanHref) return null;
 
@@ -45,14 +50,117 @@ const resolveSpineItemByHref = (book: Book, href: string): SpineItemLike | null 
 
 const sectionToHtml = async (section: SpineItemLike, book: Book): Promise<string> => {
   const contents = await section.load(book.load.bind(book));
-  const root: ParentNode = contents as unknown as ParentNode;
-  const body = root.querySelector?.('body');
-  const contentNode = body ?? (contents as Element);
-  const clonedNode = contentNode.cloneNode(true) as Element;
 
-  clonedNode.querySelectorAll?.('script, style, noscript').forEach((el) => el.remove());
-  section.unload?.();
-  return clonedNode.innerHTML || '';
+  try {
+    if (typeof contents === 'string') {
+      return contents;
+    }
+
+    let targetNode: Element | null = null;
+    const unknownContents = contents as unknown as {
+      nodeType?: number;
+      documentElement?: Element;
+      querySelector?: (selector: string) => Element | null;
+      tagName?: string;
+      textContent?: string;
+      cloneNode?: (deep?: boolean) => Node;
+    };
+    const nodeType = unknownContents?.nodeType;
+
+    if (nodeType === 9 || (typeof Document !== 'undefined' && contents instanceof Document)) {
+      const doc = contents as Document;
+      targetNode =
+        (doc.querySelector?.('body') as Element | null) ||
+        doc.documentElement;
+    } else if (unknownContents?.documentElement) {
+      targetNode =
+        (unknownContents.querySelector?.('body') as Element | null) ||
+        unknownContents.documentElement;
+    } else {
+      const element = contents as Element;
+      if (element.tagName?.toLowerCase() === 'html') {
+        targetNode =
+          (element.querySelector('body') as Element | null) ||
+          element;
+      } else {
+        targetNode = element;
+      }
+    }
+
+    if (!targetNode) return '';
+
+    const clonedNode = (targetNode.cloneNode?.(true) as Element | undefined) || targetNode;
+    clonedNode.querySelectorAll?.('script, style, noscript').forEach((el) => el.remove());
+
+    return clonedNode.innerHTML || clonedNode.textContent || '';
+  } finally {
+    section.unload?.();
+  }
+};
+
+const getSpineItems = (book: Book): SpineItemLike[] => {
+  const spine = (book as any)?.spine;
+  if (!spine) return [];
+
+  const directItems = spine.spineItems || spine.items;
+  if (Array.isArray(directItems) && directItems.length > 0) {
+    return directItems as SpineItemLike[];
+  }
+
+  if (typeof spine.each === 'function') {
+    const collected: SpineItemLike[] = [];
+    spine.each((item: SpineItemLike) => {
+      if (item) collected.push(item);
+    });
+    return collected;
+  }
+
+  return [];
+};
+
+const collectNavigationHrefs = (items: any[] | undefined, acc: string[] = []): string[] => {
+  if (!Array.isArray(items)) return acc;
+  for (const item of items) {
+    if (item?.href && typeof item.href === 'string') acc.push(item.href);
+    if (item?.subitems) collectNavigationHrefs(item.subitems, acc);
+  }
+  return acc;
+};
+
+const getSpineItemsFromNavigation = async (book: Book): Promise<SpineItemLike[]> => {
+  try {
+    const navigation = await (book as any).loaded?.navigation;
+    const hrefs = Array.from(new Set(collectNavigationHrefs(navigation?.toc)));
+    if (hrefs.length === 0) return [];
+
+    const resolved = hrefs
+      .map((href) => resolveSpineItemByHref(book, href))
+      .filter((item): item is SpineItemLike => Boolean(item));
+
+    return resolved;
+  } catch {
+    return [];
+  }
+};
+
+const probeSpineByIndex = (book: Book, maxItems = 1000): SpineItemLike[] => {
+  const spine = getSpine(book);
+  if (!spine) return [];
+  const items: SpineItemLike[] = [];
+  let misses = 0;
+
+  for (let i = 0; i < maxItems; i += 1) {
+    const item = spine.get(i);
+    if (item) {
+      items.push(item);
+      misses = 0;
+    } else {
+      misses += 1;
+      if (misses >= 10) break;
+    }
+  }
+
+  return items;
 };
 
 export const parseEpubMetadata = async (file: File) => {
@@ -81,6 +189,7 @@ export const parseEpubMetadata = async (file: File) => {
 
 export const convertChapterToMarkdown = async (book: Book, href: string): Promise<string> => {
   try {
+    await book.ready;
     const spineItem = resolveSpineItemByHref(book, href);
     if (!spineItem) return '';
 
@@ -100,10 +209,28 @@ export const convertChapterToMarkdown = async (book: Book, href: string): Promis
 
 export const convertBookToMarkdown = async (book: Book): Promise<string> => {
   try {
-    const metadata = await book.loaded.metadata;
-    let markdown = `# ${metadata.title || 'Unknown Title'}\n\n`;
-    const spine = getSpine(book);
-    const spineItems = spine.spineItems || [];
+    await book.ready;
+    let title = 'Unknown Title';
+    try {
+      const metadata = await book.loaded.metadata;
+      title = metadata?.title || title;
+    } catch (metadataError) {
+      console.warn('Failed to load EPUB metadata for conversion', metadataError);
+    }
+
+    let markdown = `# ${title}\n\n`;
+    let spineItems = getSpineItems(book);
+    if (spineItems.length === 0) {
+      spineItems = await getSpineItemsFromNavigation(book);
+    }
+    if (spineItems.length === 0) {
+      spineItems = probeSpineByIndex(book);
+    }
+
+    if (spineItems.length === 0) {
+      return 'No readable chapters were found in this EPUB.';
+    }
+
     const turndownService = new TurndownService({
       headingStyle: 'atx',
       codeBlockStyle: 'fenced',
@@ -130,6 +257,7 @@ export const convertBookToMarkdown = async (book: Book): Promise<string> => {
     return markdown;
   } catch (e) {
     console.error('Failed to convert book', e);
-    return 'Error converting book to markdown.';
+    const message = e instanceof Error ? e.message : String(e);
+    return `Error converting book to markdown.\n\n${message}`;
   }
 };

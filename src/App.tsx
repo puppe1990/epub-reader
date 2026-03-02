@@ -19,9 +19,8 @@ export default function App() {
   const [activeBookData, setActiveBookData] = useState<ArrayBuffer | null>(null);
   const [activeBookInstance, setActiveBookInstance] = useState<Book | null>(null);
   const [location, setLocation] = useState<string | number>('');
-  const [currentHref, setCurrentHref] = useState<string>('');
 
-  const [viewMode, setViewMode] = useState<'reader' | 'markdown'>('reader');
+  const [activeSection, setActiveSection] = useState<'reader' | 'converter'>('reader');
   const [markdownContent, setMarkdownContent] = useState('');
   const [isConverting, setIsConverting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -102,8 +101,7 @@ export default function App() {
       setActiveBookId(id);
       setActiveBookData(data);
       setLocation('');
-      setCurrentHref('');
-      setViewMode('reader');
+      setActiveSection('reader');
       setMarkdownContent('');
     }
   };
@@ -113,9 +111,8 @@ export default function App() {
     setActiveBookData(null);
     setActiveBookInstance(null);
     setLocation('');
-    setCurrentHref('');
     setMarkdownContent('');
-    setViewMode('reader');
+    setActiveSection('reader');
   };
 
   const handleDeleteBook = async (id: string) => {
@@ -126,34 +123,27 @@ export default function App() {
     await loadBooks();
   };
 
-  const handleConvertChapter = async () => {
-    if (!activeBookInstance || !currentHref) return;
-    setIsConverting(true);
-    try {
-      const { convertChapterToMarkdown } = await import('./services/epubService');
-      const md = await convertChapterToMarkdown(activeBookInstance, currentHref);
-      setMarkdownContent(md);
-      setViewMode('markdown');
-    } catch (e) {
-      console.error(e);
-      alert('Error converting chapter.');
-    } finally {
-      setIsConverting(false);
-    }
-  };
-
   const handleConvertBook = async () => {
-    if (!activeBookInstance) return;
+    if (!activeBookData) {
+      alert('Open an EPUB book before converting.');
+      return;
+    }
+
+    const { default: ePub } = await import('epubjs');
+    const bookToConvert = ePub(activeBookData);
+    await bookToConvert.ready;
+
     setIsConverting(true);
     try {
       const { convertBookToMarkdown } = await import('./services/epubService');
-      const md = await convertBookToMarkdown(activeBookInstance);
-      setMarkdownContent(md);
-      setViewMode('markdown');
+      const md = await convertBookToMarkdown(bookToConvert);
+      setMarkdownContent(md.trim() ? md : 'No content extracted from this book.');
+      setActiveSection('converter');
     } catch (e) {
       console.error(e);
       alert('Error converting book.');
     } finally {
+      bookToConvert.destroy();
       setIsConverting(false);
     }
   };
@@ -247,9 +237,9 @@ export default function App() {
           <div className="flex items-center gap-1 sm:gap-2">
             <div className="flex bg-zinc-100 p-1 rounded-lg border border-zinc-200">
               <button
-                onClick={() => setViewMode('reader')}
+                onClick={() => setActiveSection('reader')}
                 className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${
-                  viewMode === 'reader'
+                  activeSection === 'reader'
                     ? 'bg-white text-indigo-600 shadow-sm'
                     : 'text-zinc-500 hover:text-zinc-700'
                 }`}
@@ -259,36 +249,28 @@ export default function App() {
               </button>
               {isActiveEpub && (
                 <button
-                  onClick={() => setViewMode('markdown')}
+                  onClick={() => setActiveSection('converter')}
                   className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${
-                    viewMode === 'markdown'
+                    activeSection === 'converter'
                       ? 'bg-white text-indigo-600 shadow-sm'
                       : 'text-zinc-500 hover:text-zinc-700'
                   }`}
                 >
                   <FileText size={14} className="sm:w-4 sm:h-4" />
-                  <span className="hidden sm:inline">Markdown</span>
+                  <span className="hidden sm:inline">Converter</span>
                 </button>
               )}
             </div>
 
-            {viewMode === 'reader' && isActiveEpub && (
+            {activeSection === 'converter' && isActiveEpub && (
               <div className="flex items-center gap-1 sm:gap-2 ml-1 sm:ml-2">
-                <button
-                  onClick={handleConvertChapter}
-                  disabled={isConverting}
-                  className="hidden md:flex items-center gap-2 px-3 py-2 text-sm font-medium text-zinc-700 bg-white border border-zinc-300 rounded-lg hover:bg-zinc-50 transition-colors disabled:opacity-50"
-                >
-                  {isConverting ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}
-                  Convert Chapter
-                </button>
                 <button
                   onClick={handleConvertBook}
                   disabled={isConverting}
                   className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 text-xs sm:text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
                 >
                   {isConverting ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}
-                  <span className="hidden sm:inline">Convert Book</span>
+                  <span className="hidden sm:inline">Convert Full Book</span>
                   <span className="sm:hidden">Convert</span>
                 </button>
               </div>
@@ -297,7 +279,7 @@ export default function App() {
         </header>
 
         <main className="flex-1 relative overflow-hidden bg-zinc-50">
-          {viewMode === 'reader' && activeBookData && isActiveEpub ? (
+          {activeSection === 'reader' && activeBookData && isActiveEpub ? (
             <Suspense
               fallback={
                 <div className="absolute inset-0 flex items-center justify-center text-zinc-500">
@@ -309,15 +291,14 @@ export default function App() {
               <EpubViewer
                 bookData={activeBookData}
                 location={location}
-                onLocationChange={(loc, href) => {
+                onLocationChange={(loc) => {
                   setLocation(loc);
-                  setCurrentHref(href);
                 }}
                 onTocReady={() => {}}
                 onBookReady={setActiveBookInstance}
               />
             </Suspense>
-          ) : viewMode === 'reader' && activeBookData ? (
+          ) : activeSection === 'reader' && activeBookData ? (
             <Suspense
               fallback={
                 <div className="absolute inset-0 flex items-center justify-center text-zinc-500">
@@ -328,17 +309,34 @@ export default function App() {
             >
               <PdfViewer fileData={activeBookData} />
             </Suspense>
-          ) : viewMode === 'markdown' ? (
-            <Suspense
-              fallback={
-                <div className="absolute inset-0 flex items-center justify-center text-zinc-500">
-                  <Loader2 size={20} className="animate-spin mr-2" />
-                  Loading markdown...
+          ) : activeSection === 'converter' && isActiveEpub ? (
+            <div className="w-full h-full flex flex-col">
+              <div className="px-3 py-2 sm:px-4 sm:py-3 border-b border-zinc-200 bg-white flex items-center justify-between">
+                <p className="text-xs sm:text-sm text-zinc-600">
+                  Convert the full book to Markdown.
+                </p>
+                <div className="flex md:hidden items-center gap-2">
+                  <button
+                    onClick={handleConvertBook}
+                    disabled={isConverting}
+                    className="flex items-center gap-1 px-2 py-1.5 text-xs font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                  >
+                    {isConverting ? <Loader2 size={12} className="animate-spin" /> : <FileText size={12} />}
+                    Convert Full Book
+                  </button>
                 </div>
-              }
-            >
-              <MarkdownViewer markdown={markdownContent} title={activeBook?.title || 'book'} />
-            </Suspense>
+              </div>
+              <Suspense
+                fallback={
+                  <div className="absolute inset-0 flex items-center justify-center text-zinc-500">
+                    <Loader2 size={20} className="animate-spin mr-2" />
+                    Loading markdown...
+                  </div>
+                }
+              >
+                <MarkdownViewer markdown={markdownContent} title={activeBook?.title || 'book'} />
+              </Suspense>
+            </div>
           ) : null}
         </main>
       </div>
