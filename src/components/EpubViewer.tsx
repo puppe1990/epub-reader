@@ -19,6 +19,30 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
 }) => {
   const viewerRef = useRef<HTMLDivElement>(null);
   const [rendition, setRendition] = useState<Rendition | null>(null);
+  const [pageInfo, setPageInfo] = useState<{ current: number; total: number } | null>(null);
+
+  const updateGlobalPageInfo = (book: Book, loc: any) => {
+    const locations = (book as any).locations;
+    if (!locations || typeof locations.total !== 'number') return;
+
+    const total = locations.total + 1;
+    let currentLocation = loc?.start?.location;
+
+    if (
+      (typeof currentLocation !== 'number' || currentLocation < 0) &&
+      loc?.start?.cfi &&
+      typeof locations.locationFromCfi === 'function'
+    ) {
+      currentLocation = locations.locationFromCfi(loc.start.cfi);
+    }
+
+    if (typeof currentLocation === 'number' && currentLocation >= 0) {
+      setPageInfo({
+        current: Math.min(currentLocation + 1, total),
+        total,
+      });
+    }
+  };
 
   useEffect(() => {
     if (!viewerRef.current) return;
@@ -39,10 +63,17 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
 
     setRendition(newRendition);
 
-    newBook.ready.then(() => {
+    newBook.ready.then(async () => {
       newBook.loaded.navigation.then((nav) => {
         onTocReady(nav.toc);
       });
+
+      // Build global locations map so we can show "current / total" for the whole book.
+      // A larger break keeps generation faster while still useful for progress feedback.
+      const locations = (newBook as any).locations;
+      if (locations && typeof locations.generate === 'function') {
+        await locations.generate(1600);
+      }
     });
 
     if (location) {
@@ -57,6 +88,9 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
         const spineItem = newBook.spine.get(loc.start.index);
         if (spineItem) href = spineItem.href;
       }
+
+      updateGlobalPageInfo(newBook, loc);
+
       onLocationChange(loc.start.cfi, href || '');
     });
 
@@ -72,6 +106,23 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
       rendition.display(location);
     }
   }, [location, rendition]);
+
+  useEffect(() => {
+    if (!rendition) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        rendition.next();
+      } else if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        rendition.prev();
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [rendition]);
 
   const handlePrev = () => {
     if (rendition) rendition.prev();
@@ -98,6 +149,12 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
       >
         <ChevronRight size={24} />
       </button>
+
+      {pageInfo && (
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 px-3 py-1.5 rounded-full bg-zinc-900/80 text-white text-xs sm:text-sm backdrop-blur">
+          {pageInfo.current} / {pageInfo.total}
+        </div>
+      )}
     </div>
   );
 };

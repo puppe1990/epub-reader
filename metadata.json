@@ -1,5 +1,5 @@
 {
-  "name": "EPUB Reader & Converter",
+  "name": "EPUB & PDF Reader",
   "description": "A web-based EPUB reader that allows users to view EPUB files and convert them to Markdown.",
   "requestFramePermissions": []
 }
