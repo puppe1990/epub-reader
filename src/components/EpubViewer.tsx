@@ -20,6 +20,7 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
   const viewerRef = useRef<HTMLDivElement>(null);
   const [rendition, setRendition] = useState<Rendition | null>(null);
   const [pageInfo, setPageInfo] = useState<{ current: number; total: number } | null>(null);
+  const lastRelocatedCfiRef = useRef<string>('');
 
   const updateGlobalPageInfo = (book: Book, loc: any) => {
     const locations = (book as any).locations;
@@ -89,6 +90,9 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
         if (spineItem) href = spineItem.href;
       }
 
+      if (loc?.start?.cfi) {
+        lastRelocatedCfiRef.current = loc.start.cfi;
+      }
       updateGlobalPageInfo(newBook, loc);
 
       onLocationChange(loc.start.cfi, href || '');
@@ -101,9 +105,16 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
 
   useEffect(() => {
     if (rendition && location) {
-      // Only display if it's a different location to avoid loops
-      // Actually, epubjs handles this, but it's better to be safe
-      rendition.display(location);
+      const currentCfi = (rendition as any)?.location?.start?.cfi;
+      if (
+        typeof location === 'string' &&
+        (location === currentCfi || location === lastRelocatedCfiRef.current)
+      ) {
+        return;
+      }
+      rendition.display(location).catch((error: unknown) => {
+        console.warn('Failed to sync location in rendition', error);
+      });
     }
   }, [location, rendition]);
 

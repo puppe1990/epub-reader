@@ -12,6 +12,34 @@ interface SpineLike {
   spineItems?: SpineItemLike[];
 }
 
+export type ConversionPhase =
+  | 'idle'
+  | 'initializing'
+  | 'loading-structure'
+  | 'converting'
+  | 'finalizing'
+  | 'completed'
+  | 'error';
+
+export interface ConversionProgress {
+  phase: ConversionPhase;
+  progress: number;
+  message: string;
+  current?: number;
+  total?: number;
+}
+
+export interface ConversionMetrics {
+  totalChapters: number;
+  convertedChapters: number;
+  failedChapters: number;
+  durationMs: number;
+}
+
+interface ConvertBookOptions {
+  onProgress?: (progress: ConversionProgress) => void;
+}
+
 const getSpine = (book: Book): SpineLike | null => {
   const spine = (book as any)?.spine;
   if (!spine || typeof spine.get !== 'function') return null;
@@ -164,6 +192,14 @@ const probeSpineByIndex = (book: Book, maxItems = 1000): SpineItemLike[] => {
 };
 
 export const parseEpubMetadata = async (file: File) => {
+  const blobToDataUrl = async (blob: Blob): Promise<string> =>
+    await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(String(reader.result || ''));
+      reader.onerror = () => reject(new Error('Failed to convert cover blob to data URL.'));
+      reader.readAsDataURL(blob);
+    });
+
   const buffer = await file.arrayBuffer();
   const book = ePub(buffer);
   try {
@@ -172,7 +208,15 @@ export const parseEpubMetadata = async (file: File) => {
     let coverUrl: string | undefined;
     try {
       const cover = await book.coverUrl();
-      if (cover) coverUrl = cover;
+      if (cover) {
+        const coverResponse = await fetch(cover);
+        const coverBlob = await coverResponse.blob();
+        const dataUrl = await blobToDataUrl(coverBlob);
+        coverUrl = dataUrl || undefined;
+        if (cover.startsWith('blob:')) {
+          URL.revokeObjectURL(cover);
+        }
+      }
     } catch (e) {
       console.warn('Failed to load cover', e);
     }
@@ -208,7 +252,22 @@ export const convertChapterToMarkdown = async (book: Book, href: string): Promis
 };
 
 export const convertBookToMarkdown = async (book: Book): Promise<string> => {
+  const result = await convertBookToMarkdownDetailed(book);
+  return result.markdown;
+};
+
+export const convertBookToMarkdownDetailed = async (
+  book: Book,
+  options: ConvertBookOptions = {},
+): Promise<{ markdown: string; metrics: ConversionMetrics; errors: string[] }> => {
+  const { onProgress } = options;
+  const startedAt = performance.now();
+  const report = (payload: ConversionProgress) => {
+    onProgress?.(payload);
+  };
+
   try {
+    report({ phase: 'initializing', progress: 5, message: 'Initializing book conversion...' });
     await book.ready;
     let title = 'Unknown Title';
     try {
@@ -217,6 +276,8 @@ export const convertBookToMarkdown = async (book: Book): Promise<string> => {
     } catch (metadataError) {
       console.warn('Failed to load EPUB metadata for conversion', metadataError);
     }
+
+    report({ phase: 'loading-structure', progress: 12, message: 'Loading chapters...' });
 
     let markdown = `# ${title}\n\n`;
     let spineItems = getSpineItems(book);
@@ -228,21 +289,44 @@ export const convertBookToMarkdown = async (book: Book): Promise<string> => {
     }
 
     if (spineItems.length === 0) {
-      return 'No readable chapters were found in this EPUB.';
+      const durationMs = performance.now() - startedAt;
+      report({ phase: 'error', progress: 100, message: 'No readable chapters found.' });
+      return {
+        markdown: 'No readable chapters were found in this EPUB.',
+        metrics: {
+          totalChapters: 0,
+          convertedChapters: 0,
+          failedChapters: 0,
+          durationMs,
+        },
+        errors: ['No readable chapters were found in this EPUB.'],
+      };
     }
 
     const turndownService = new TurndownService({
       headingStyle: 'atx',
       codeBlockStyle: 'fenced',
     });
+    const errors: string[] = [];
+    let convertedChapters = 0;
 
     for (let index = 0; index < spineItems.length; index += 1) {
       const item = spineItems[index];
       try {
+        report({
+          phase: 'converting',
+          progress: 15 + Math.round((index / Math.max(spineItems.length, 1)) * 75),
+          message: `Converting chapter ${index + 1} of ${spineItems.length}...`,
+          current: index + 1,
+          total: spineItems.length,
+        });
         const html = await sectionToHtml(item, book);
         if (html) {
           const chapterMd = turndownService.turndown(html);
-          if (chapterMd.trim()) markdown += chapterMd + '\n\n---\n\n';
+          if (chapterMd.trim()) {
+            markdown += chapterMd + '\n\n---\n\n';
+            convertedChapters += 1;
+          }
         }
 
         // Yield control periodically to keep UI responsive with large books.
@@ -251,13 +335,38 @@ export const convertBookToMarkdown = async (book: Book): Promise<string> => {
         }
       } catch (e) {
         console.error('Failed to convert a chapter', e);
+        errors.push(`Chapter ${index + 1}: ${e instanceof Error ? e.message : String(e)}`);
       }
     }
-    
-    return markdown;
+
+    report({ phase: 'finalizing', progress: 95, message: 'Finalizing markdown...' });
+    const durationMs = performance.now() - startedAt;
+    const failedChapters = Math.max(spineItems.length - convertedChapters, 0);
+    report({ phase: 'completed', progress: 100, message: 'Conversion completed.' });
+
+    return {
+      markdown,
+      metrics: {
+        totalChapters: spineItems.length,
+        convertedChapters,
+        failedChapters,
+        durationMs,
+      },
+      errors,
+    };
   } catch (e) {
     console.error('Failed to convert book', e);
     const message = e instanceof Error ? e.message : String(e);
-    return `Error converting book to markdown.\n\n${message}`;
+    report({ phase: 'error', progress: 100, message: 'Conversion failed.' });
+    return {
+      markdown: `Error converting book to markdown.\n\n${message}`,
+      metrics: {
+        totalChapters: 0,
+        convertedChapters: 0,
+        failedChapters: 0,
+        durationMs: performance.now() - startedAt,
+      },
+      errors: [message],
+    };
   }
 };

@@ -1,6 +1,6 @@
 # EPUB & PDF Reader
 
-Aplicação web para leitura de arquivos **EPUB** e **PDF**, com biblioteca local no navegador e conversão de EPUB para Markdown.
+Aplicação web para leitura de arquivos **EPUB** e **PDF**, com biblioteca remota em **Turso** e API em **Netlify Functions**.
 
 ## Funcionalidades
 
@@ -9,24 +9,43 @@ Aplicação web para leitura de arquivos **EPUB** e **PDF**, com biblioteca loca
 - Abertura do livro ao clicar no card
 - Leitor EPUB com navegação por botões e teclado (`←` / `→`)
 - Indicador de progresso global do livro no EPUB (`página atual / total`)
+- Persistência de progresso de leitura no servidor
 - Visualização de PDF no navegador
 - Conversão de capítulo/livro EPUB para Markdown
 - Download e cópia do conteúdo Markdown
-- Persistência local dos livros via IndexedDB (`localforage`)
 
 ## Stack
 
 - React 19 + TypeScript
 - Vite 6
 - Tailwind CSS 4
+- Netlify Functions
+- Turso (`@libsql/client`)
 - `epubjs` para leitura de EPUB
 - `turndown` para conversão HTML -> Markdown
-- `localforage` para armazenamento local
 
 ## Requisitos
 
 - Node.js 18+ (recomendado 20+)
 - npm
+- Conta/DB Turso
+
+## Variáveis de ambiente
+
+Copie `.env.example` para `.env` e configure:
+
+- `TURSO_DATABASE_URL`
+- `TURSO_AUTH_TOKEN`
+- `VITE_API_BASE_URL` (default recomendado: `/api`)
+
+## Banco de dados
+
+A migration inicial e a migration de storage em blobs estão em:
+
+- `db/migrations/001_init.sql`
+- `db/migrations/002_blob_storage.sql`
+
+Aplique ambos no Turso antes de usar a aplicação em produção.
 
 ## Como rodar
 
@@ -36,7 +55,7 @@ Aplicação web para leitura de arquivos **EPUB** e **PDF**, com biblioteca loca
 npm install
 ```
 
-2. Inicie o servidor de desenvolvimento:
+2. Rode em modo full-stack (frontend + functions):
 
 ```bash
 npm run dev
@@ -48,7 +67,9 @@ npm run dev
 
 ## Scripts
 
-- `npm run dev`: inicia em modo desenvolvimento (`--port=3000 --host=0.0.0.0`)
+- `npm run dev`: roda app completo (Netlify proxy + Vite + Functions) em `http://localhost:3000`
+- `npm run dev:vite`: roda somente o Vite em `http://localhost:3001`
+- `npm run dev:netlify`: alias de `npm run dev`
 - `npm run build`: gera build de produção
 - `npm run preview`: serve o build localmente
 - `npm run lint`: checagem de tipos com TypeScript (`tsc --noEmit`)
@@ -64,11 +85,36 @@ src/
     PdfViewer.tsx
     MarkdownViewer.tsx
   services/
+    apiClient.ts
     db.ts
     epubService.ts
+
+netlify/
+  functions/
+    api.ts
+    books-list.ts
+    books-create.ts
+    books-data.ts
+    books-delete.ts
+    progress-get.ts
+    progress-put.ts
+    uploads-init.ts
+    uploads-chunk.ts
+    uploads-complete.ts
+    _lib/
+      book-bytes.ts
+      turso.ts
+      http.ts
+      uploads.ts
+
+db/
+  migrations/
+    001_init.sql
+    002_blob_storage.sql
 ```
 
 ## Observações
 
-- O projeto funciona 100% no frontend e salva dados localmente no navegador.
-- A conversão para Markdown está disponível para EPUB.
+- Sem autenticação nesta fase (namespace único do app).
+- Upload em **chunks** com Netlify Blobs (suporte a arquivos até **25MB**).
+- Em indisponibilidade da API/Turso, o app falha com mensagem clara (sem fallback local).
