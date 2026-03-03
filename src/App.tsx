@@ -23,6 +23,8 @@ const PdfViewer = lazy(() =>
 );
 
 export default function App() {
+  type ReaderTheme = 'light' | 'sepia' | 'dark';
+
   const [books, setBooks] = useState<Omit<BookRecord, 'data'>[]>([]);
   const [isLoadingBooks, setIsLoadingBooks] = useState(true);
   const [activeBookId, setActiveBookId] = useState<string | null>(null);
@@ -30,6 +32,17 @@ export default function App() {
   const [openingBookId, setOpeningBookId] = useState<string | null>(null);
   const [location, setLocation] = useState<string | number>('');
   const [locationHref, setLocationHref] = useState<string>('');
+  const [readerFontScale, setReaderFontScale] = useState<number>(() => {
+    if (typeof window === 'undefined') return 100;
+    const stored = Number(window.localStorage.getItem('reader-font-scale') || 100);
+    return Number.isFinite(stored) ? Math.min(150, Math.max(85, stored)) : 100;
+  });
+  const [readerTheme, setReaderTheme] = useState<ReaderTheme>(() => {
+    if (typeof window === 'undefined') return 'light';
+    const stored = window.localStorage.getItem('reader-theme');
+    if (stored === 'sepia' || stored === 'dark' || stored === 'light') return stored;
+    return 'light';
+  });
 
   const [activeSection, setActiveSection] = useState<'reader' | 'converter'>('reader');
   const [markdownContent, setMarkdownContent] = useState('');
@@ -64,6 +77,14 @@ export default function App() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem('reader-font-scale', String(readerFontScale));
+  }, [readerFontScale]);
+
+  useEffect(() => {
+    window.localStorage.setItem('reader-theme', readerTheme);
+  }, [readerTheme]);
 
   const loadBooks = async () => {
     setIsLoadingBooks(true);
@@ -487,6 +508,56 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-1 sm:gap-2">
+            {activeSection === 'reader' && isActiveEpub && (
+              <div className="hidden md:flex items-center gap-2 mr-1">
+                <div className="flex items-center rounded-lg border border-zinc-200 bg-white overflow-hidden">
+                  <button
+                    onClick={() => setReaderFontScale((value) => Math.max(85, value - 5))}
+                    className="px-2.5 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-100"
+                    aria-label="Diminuir tamanho da fonte"
+                  >
+                    A-
+                  </button>
+                  <span className="px-2 text-[11px] text-zinc-500 border-x border-zinc-200 min-w-[48px] text-center">
+                    {readerFontScale}%
+                  </span>
+                  <button
+                    onClick={() => setReaderFontScale((value) => Math.min(150, value + 5))}
+                    className="px-2.5 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-100"
+                    aria-label="Aumentar tamanho da fonte"
+                  >
+                    A+
+                  </button>
+                </div>
+                <div className="flex items-center rounded-lg border border-zinc-200 bg-white p-1 gap-1">
+                  <button
+                    onClick={() => setReaderTheme('light')}
+                    className={`px-2 py-1 rounded text-[11px] font-medium ${
+                      readerTheme === 'light' ? 'bg-zinc-900 text-white' : 'text-zinc-600 hover:bg-zinc-100'
+                    }`}
+                  >
+                    Claro
+                  </button>
+                  <button
+                    onClick={() => setReaderTheme('sepia')}
+                    className={`px-2 py-1 rounded text-[11px] font-medium ${
+                      readerTheme === 'sepia' ? 'bg-amber-700 text-amber-50' : 'text-zinc-600 hover:bg-zinc-100'
+                    }`}
+                  >
+                    Amarelado
+                  </button>
+                  <button
+                    onClick={() => setReaderTheme('dark')}
+                    className={`px-2 py-1 rounded text-[11px] font-medium ${
+                      readerTheme === 'dark' ? 'bg-black text-zinc-100' : 'text-zinc-600 hover:bg-zinc-100'
+                    }`}
+                  >
+                    Escuro
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="flex bg-zinc-100 p-1 rounded-lg border border-zinc-200">
               <button
                 onClick={() => setActiveSection('reader')}
@@ -543,6 +614,8 @@ export default function App() {
               <EpubViewer
                 bookData={activeBookData}
                 location={location}
+                fontScale={readerFontScale}
+                theme={readerTheme}
                 onLocationChange={(loc, href) => {
                   setLocation(loc);
                   setLocationHref(href);

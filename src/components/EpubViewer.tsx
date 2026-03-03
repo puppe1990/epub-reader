@@ -5,6 +5,8 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 interface EpubViewerProps {
   bookData: ArrayBuffer;
   location: string | number;
+  fontScale: number;
+  theme: 'light' | 'sepia' | 'dark';
   onLocationChange: (location: string, href: string) => void;
   onTocReady: (toc: any[]) => void;
   onBookReady: (book: Book) => void;
@@ -13,6 +15,8 @@ interface EpubViewerProps {
 export const EpubViewer: React.FC<EpubViewerProps> = ({
   bookData,
   location,
+  fontScale,
+  theme,
   onLocationChange,
   onTocReady,
   onBookReady,
@@ -121,6 +125,32 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
   useEffect(() => {
     if (!rendition) return;
 
+    const palette =
+      theme === 'dark'
+        ? { bg: '#0a0a0a', text: '#f5f5f5', link: '#93c5fd' }
+        : theme === 'sepia'
+          ? { bg: '#f5ebd6', text: '#4a3925', link: '#9a6a38' }
+          : { bg: '#f8fafc', text: '#111827', link: '#2563eb' };
+
+    rendition.themes.default({
+      body: {
+        background: `${palette.bg} !important`,
+        color: `${palette.text} !important`,
+        'line-height': '1.7 !important',
+      },
+      'p, div, span, li, h1, h2, h3, h4, h5, h6': {
+        color: `${palette.text} !important`,
+      },
+      a: {
+        color: `${palette.link} !important`,
+      },
+    });
+    rendition.themes.fontSize(`${fontScale}%`);
+  }, [fontScale, rendition, theme]);
+
+  useEffect(() => {
+    if (!rendition) return;
+
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'ArrowRight') {
         event.preventDefault();
@@ -143,8 +173,24 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
     if (rendition) rendition.next();
   };
 
+  const readerSurfaceClass =
+    theme === 'dark' ? 'bg-black' : theme === 'sepia' ? 'bg-amber-100' : 'bg-zinc-50';
+
   return (
-    <div className="relative w-full h-full flex items-center justify-center bg-zinc-50">
+    <div className={`relative w-full h-full flex items-center justify-center ${readerSurfaceClass}`}>
+      <button
+        type="button"
+        aria-label="Previous page"
+        onClick={handlePrev}
+        className="absolute inset-y-0 left-0 z-[5] w-[18%] sm:w-[14%] cursor-w-resize"
+      />
+      <button
+        type="button"
+        aria-label="Next page"
+        onClick={handleNext}
+        className="absolute inset-y-0 right-0 z-[5] w-[18%] sm:w-[14%] cursor-e-resize"
+      />
+
       <button
         onClick={handlePrev}
         className="absolute left-2 sm:left-4 z-10 p-2 sm:p-3 rounded-full bg-white/80 shadow-md hover:bg-white text-zinc-600 hover:text-zinc-900 transition-all"
