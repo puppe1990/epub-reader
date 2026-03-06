@@ -1,5 +1,16 @@
 import React, { Suspense, lazy } from 'react';
-import { ArrowLeft, BookOpen, Download, FileText, Loader2, SlidersHorizontal, Sparkles, X } from 'lucide-react';
+import {
+  ArrowLeft,
+  BookOpen,
+  Download,
+  Expand,
+  FileText,
+  Loader2,
+  Minimize2,
+  SlidersHorizontal,
+  Sparkles,
+  X,
+} from 'lucide-react';
 import { BookRecord } from '../../services/db';
 import type { ConversionMetrics, ConversionProgress } from '../../services/epubService';
 import { ReaderTheme, formatBytes } from './ui';
@@ -62,9 +73,17 @@ export const ReaderWorkspace = React.memo(function ReaderWorkspace({
   onConvertBook,
 }: ReaderWorkspaceProps) {
   const [isReaderSettingsOpen, setIsReaderSettingsOpen] = React.useState(false);
+  const [isImmersiveMode, setIsImmersiveMode] = React.useState(false);
 
   React.useEffect(() => {
-    if (!isReaderSettingsOpen) return;
+    if (activeSection !== 'reader') {
+      setIsImmersiveMode(false);
+      setIsReaderSettingsOpen(false);
+    }
+  }, [activeSection]);
+
+  React.useEffect(() => {
+    if (!isReaderSettingsOpen && !isImmersiveMode) return;
 
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -72,12 +91,19 @@ export const ReaderWorkspace = React.memo(function ReaderWorkspace({
     return () => {
       document.body.style.overflow = previousOverflow;
     };
-  }, [isReaderSettingsOpen]);
+  }, [isReaderSettingsOpen, isImmersiveMode]);
 
   return (
-    <div className="flex h-dvh w-full overflow-hidden bg-transparent p-2 sm:p-3">
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[28px] border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)] backdrop-blur">
-        <header className="border-b border-[color:var(--border)] bg-[color:var(--surface-strong)]/90 px-3 py-3 sm:px-5">
+    <div className={`flex h-dvh w-full overflow-hidden bg-transparent ${isImmersiveMode ? 'p-0' : 'p-2 sm:p-3'}`}>
+      <div
+        className={`flex min-h-0 flex-1 flex-col overflow-hidden border border-[color:var(--border)] bg-[color:var(--surface)] backdrop-blur ${
+          isImmersiveMode
+            ? 'rounded-none border-transparent shadow-none'
+            : 'rounded-[28px] shadow-[var(--shadow-soft)]'
+        }`}
+      >
+        {!isImmersiveMode && (
+          <header className="border-b border-[color:var(--border)] bg-[color:var(--surface-strong)]/90 px-3 py-3 sm:px-5">
           <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
             <div className="flex items-start gap-3">
               <button
@@ -223,31 +249,47 @@ export const ReaderWorkspace = React.memo(function ReaderWorkspace({
               </div>
             </div>
           </div>
-        </header>
+          </header>
+        )}
 
-        <main className={`relative flex-1 overflow-hidden ${activeSection === 'reader' ? 'pb-28 md:pb-0' : ''}`}>
-          {activeSection === 'reader' && isActiveEpub && (
-            <div className="border-b border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-3 md:hidden">
-              <button
-                onClick={() => setIsReaderSettingsOpen(true)}
-                className="flex w-full items-center justify-between rounded-[24px] border border-[color:var(--border)] bg-white/85 px-4 py-3 text-left shadow-[var(--shadow-card)] transition hover:border-[color:var(--border-strong)] hover:bg-white"
-                aria-haspopup="dialog"
-                aria-expanded={isReaderSettingsOpen}
-                aria-label="Abrir ajustes de leitura"
-              >
-                <div className="min-w-0">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[color:var(--text-muted)]">
-                    Ajustes de leitura
-                  </p>
-                  <p className="mt-1 truncate text-sm font-semibold text-[color:var(--text)]">
-                    {readerTheme === 'light' ? 'Claro' : readerTheme === 'sepia' ? 'Sépia' : 'Noturno'} • {readerFontScale}%
-                  </p>
+        <main className={`relative flex-1 overflow-hidden ${activeSection === 'reader' && !isImmersiveMode ? 'pb-28 md:pb-0' : ''}`}>
+          {activeSection === 'reader' && (
+            <>
+              <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between px-3 pt-3">
+                <div className="pointer-events-auto">
+                  {isImmersiveMode && (
+                    <button
+                      onClick={() => setIsImmersiveMode(false)}
+                      className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-strong)]/92 text-[color:var(--text)] shadow-[var(--shadow-card)] backdrop-blur"
+                      aria-label="Sair do modo tela cheia"
+                    >
+                      <Minimize2 size={16} />
+                    </button>
+                  )}
                 </div>
-                <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[color:var(--surface-muted)] text-[color:var(--text)]">
-                  <SlidersHorizontal size={18} />
-                </span>
-              </button>
-            </div>
+
+                <div className="pointer-events-auto flex items-center gap-2">
+                  {isActiveEpub && (
+                    <button
+                      onClick={() => setIsReaderSettingsOpen(true)}
+                      className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-strong)]/92 text-[color:var(--text)] shadow-[var(--shadow-card)] backdrop-blur"
+                      aria-haspopup="dialog"
+                      aria-expanded={isReaderSettingsOpen}
+                      aria-label="Abrir ajustes de leitura"
+                    >
+                      <SlidersHorizontal size={16} />
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setIsImmersiveMode((value) => !value)}
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-strong)]/92 text-[color:var(--text)] shadow-[var(--shadow-card)] backdrop-blur"
+                    aria-label={isImmersiveMode ? 'Sair do modo tela cheia' : 'Ativar modo tela cheia'}
+                  >
+                    {isImmersiveMode ? <Minimize2 size={16} /> : <Expand size={16} />}
+                  </button>
+                </div>
+              </div>
+            </>
           )}
 
           {activeSection === 'reader' && isActiveEpub ? (
@@ -376,7 +418,8 @@ export const ReaderWorkspace = React.memo(function ReaderWorkspace({
           )}
         </main>
 
-        <div className="fixed inset-x-2 bottom-2 z-20 rounded-[24px] border border-[color:var(--border)] bg-[color:var(--surface-strong)]/95 p-2 shadow-[var(--shadow-card)] backdrop-blur md:hidden">
+        {!isImmersiveMode && (
+          <div className="fixed inset-x-2 bottom-2 z-20 rounded-[24px] border border-[color:var(--border)] bg-[color:var(--surface-strong)]/95 p-2 shadow-[var(--shadow-card)] backdrop-blur md:hidden">
           <div className={`grid gap-2 ${isActiveEpub ? 'grid-cols-3' : 'grid-cols-2'}`}>
             <button
               onClick={onBackToLibrary}
@@ -400,11 +443,12 @@ export const ReaderWorkspace = React.memo(function ReaderWorkspace({
               Baixar
             </button>
           </div>
-        </div>
+          </div>
+        )}
 
         {isActiveEpub && activeSection === 'reader' && isReaderSettingsOpen && (
           <div
-            className="fixed inset-0 z-30 flex items-end bg-[color:var(--overlay)]/50 px-3 pb-24 pt-6 md:hidden"
+            className={`fixed inset-0 z-30 flex items-end bg-[color:var(--overlay)]/50 px-3 pt-6 ${isImmersiveMode ? 'pb-6' : 'pb-24'}`}
             role="dialog"
             aria-modal="true"
             aria-label="Ajustes de leitura"
