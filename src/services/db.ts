@@ -17,6 +17,11 @@ export interface ReadingProgress {
   updatedAt: number;
 }
 
+export interface LibraryTaskStatus {
+  tone: 'info' | 'success' | 'error';
+  message: string;
+}
+
 const MAX_UPLOAD_BYTES_CLIENT = 25 * 1024 * 1024;
 
 const fromBase64 = (encoded: string): ArrayBuffer => {
@@ -94,6 +99,12 @@ export const getBookData = async (id: string): Promise<ArrayBuffer | null> => {
 export const deleteBook = async (id: string): Promise<void> => {
   await request<void>(`/books/${encodeURIComponent(id)}`, {
     method: 'DELETE',
+  });
+};
+
+export const convertPdfBook = async (id: string): Promise<Omit<BookRecord, 'data'>> => {
+  return request<Omit<BookRecord, 'data'>>(`/books/${encodeURIComponent(id)}/convert-pdf`, {
+    method: 'POST',
   });
 };
 

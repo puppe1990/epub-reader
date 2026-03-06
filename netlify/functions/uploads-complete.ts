@@ -1,8 +1,7 @@
 import { z } from 'zod';
-import { v4 as uuidv4 } from 'uuid';
-import { getDb } from './_lib/turso';
 import { fail, json, readJson } from './_lib/http';
-import { copyUploadToBook, deleteUploadTempData, getUploadMetadata, getUploadChunk } from './_lib/uploads';
+import { deleteUploadTempData, getUploadMetadata, getUploadChunk } from './_lib/uploads';
+import { createStoredBook } from './_lib/books';
 
 const schema = z.object({
   uploadId: z.string().uuid(),
@@ -46,8 +45,6 @@ export const handleUploadsComplete = async (req: Request): Promise<Response> => 
     fail(400, 'Uploaded chunks size does not match sizeBytes.');
   }
 
-  const id = uuidv4();
-  const addedAt = Date.now();
   const fullFileBytes = new Uint8Array(uploadedBytes);
   let offset = 0;
   for (const chunk of uploadedChunks) {
@@ -55,43 +52,17 @@ export const handleUploadsComplete = async (req: Request): Promise<Response> => 
     offset += chunk.byteLength;
   }
 
-  await copyUploadToBook(data.uploadId, id, data.chunkCount);
-  const db = getDb();
-  await db.execute({
-    sql: `
-      INSERT INTO books (
-        id, title, author, format, cover_url, mime_type, size_bytes, file_blob, added_at, file_storage, file_key, chunk_count
-      )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `,
-    args: [
-      id,
-      data.title,
-      data.author,
-      data.format,
-      data.coverUrl ?? null,
-      data.mimeType,
-      data.sizeBytes,
-      fullFileBytes,
-      addedAt,
-      'netlify-blobs',
-      `books/${id}/chunks`,
-      data.chunkCount,
-    ],
+  const createdBook = await createStoredBook({
+    title: data.title,
+    author: data.author,
+    format: data.format,
+    mimeType: data.mimeType,
+    sizeBytes: data.sizeBytes,
+    fileBytes: fullFileBytes,
+    coverUrl: data.coverUrl,
   });
 
   await deleteUploadTempData(data.uploadId, data.chunkCount);
 
-  return json(
-    {
-      id,
-      title: data.title,
-      author: data.author,
-      format: data.format,
-      coverUrl: data.coverUrl,
-      addedAt,
-      sizeBytes: data.sizeBytes,
-    },
-    201,
-  );
+  return json(createdBook, 201);
 };

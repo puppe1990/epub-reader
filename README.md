@@ -63,16 +63,36 @@ npm run dev
 
 3. Abra no navegador:
 
-`http://localhost:3000`
+`http://localhost:8888`
+
+## Desenvolvimento local
+
+- `npm run dev`: sobe o app completo com `Netlify Dev` em `http://localhost:8888`
+- `npm run dev:vite`: sobe somente o Vite em `http://localhost:8889`
+
+Observações importantes:
+
+- Use `npm run dev` para desenvolvimento normal. Ele já sobe o Vite internamente.
+- Não rode `npm run dev:vite` e `npm run dev` ao mesmo tempo.
+- O projeto usa portas fixas para evitar proxy quebrado:
+  - `8888`: app completo com Netlify Functions
+  - `8889`: Vite puro
+- Se alguma dessas portas já estiver em uso, encerre o processo antes de subir o projeto:
+
+```bash
+lsof -tiTCP:8888 -sTCP:LISTEN | xargs kill
+lsof -tiTCP:8889 -sTCP:LISTEN | xargs kill
+```
 
 ## Scripts
 
-- `npm run dev`: roda app completo (Netlify proxy + Vite + Functions) em `http://localhost:3000`
-- `npm run dev:vite`: roda somente o Vite em `http://localhost:3001`
+- `npm run dev`: roda app completo (Netlify proxy + Vite + Functions) em `http://localhost:8888`
+- `npm run dev:vite`: roda somente o Vite em `http://localhost:8889`
 - `npm run dev:netlify`: alias de `npm run dev`
 - `npm run build`: gera build de produção
 - `npm run preview`: serve o build localmente
 - `npm run lint`: checagem de tipos com TypeScript (`tsc --noEmit`)
+- `npm run test`: smoke tests com Vitest
 - `npm run clean`: remove a pasta `dist`
 
 ## Estrutura principal

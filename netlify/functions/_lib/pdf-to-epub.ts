@@ -1,43 +1,5 @@
-type PdfToEpubOptions = {
-  title: string;
-  author?: string;
-};
-
-type PdfJsModule = typeof import('pdfjs-dist');
-let pdfJsPromise: Promise<PdfJsModule> | null = null;
-let jsZipPromise: Promise<any> | null = null;
-let workerSetupPromise: Promise<void> | null = null;
-
-const loadPdfJs = async (): Promise<PdfJsModule> => {
-  if (!pdfJsPromise) {
-    pdfJsPromise = import('pdfjs-dist');
-  }
-  return pdfJsPromise;
-};
-
-const loadJSZip = async (): Promise<any> => {
-  if (!jsZipPromise) {
-    jsZipPromise = import('jszip').then((module) => (module as any).default ?? module);
-  }
-  return jsZipPromise;
-};
-
-const ensurePdfWorker = async (): Promise<void> => {
-  if (!workerSetupPromise) {
-    workerSetupPromise = (async () => {
-      const [pdfjsLib, workerModule] = await Promise.all([
-        loadPdfJs(),
-        import('pdfjs-dist/build/pdf.worker.min.mjs?url'),
-      ]);
-
-      (
-        pdfjsLib as unknown as { GlobalWorkerOptions: { workerSrc: string } }
-      ).GlobalWorkerOptions.workerSrc = workerModule.default;
-    })();
-  }
-
-  await workerSetupPromise;
-};
+import JSZip from 'jszip';
+import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 
 const xmlEscape = (value: string): string =>
   value
@@ -58,17 +20,14 @@ const splitIntoChapters = (pages: string[]): string[][] => {
   return chapters.length ? chapters : [[]];
 };
 
-const extractPdfPages = async (pdfBuffer: ArrayBuffer): Promise<string[]> => {
-  await ensurePdfWorker();
-  const pdfjsLib = await loadPdfJs();
-  const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(pdfBuffer) });
+const extractPdfPages = async (pdfBuffer: Uint8Array): Promise<string[]> => {
+  const loadingTask = pdfjsLib.getDocument({ data: pdfBuffer });
   const pdfDoc = await loadingTask.promise;
   const pages: string[] = [];
 
   for (let i = 1; i <= pdfDoc.numPages; i += 1) {
     const page = await pdfDoc.getPage(i);
     const textContent = await page.getTextContent();
-
     const items = textContent.items as Array<{ str?: string }>;
     const text = items
       .map((item) => item.str || '')
@@ -82,8 +41,10 @@ const extractPdfPages = async (pdfBuffer: ArrayBuffer): Promise<string[]> => {
   return pages;
 };
 
-const buildEpub = async (pages: string[], options: PdfToEpubOptions): Promise<Blob> => {
-  const JSZip = await loadJSZip();
+const buildEpubBuffer = async (
+  pages: string[],
+  options: { title: string; author?: string },
+): Promise<Uint8Array> => {
   const zip = new JSZip();
   const id = crypto.randomUUID();
   const author = options.author || 'Unknown Author';
@@ -209,17 +170,17 @@ const buildEpub = async (pages: string[], options: PdfToEpubOptions): Promise<Bl
   );
 
   return zip.generateAsync({
-    type: 'blob',
+    type: 'uint8array',
     mimeType: 'application/epub+zip',
     compression: 'DEFLATE',
     compressionOptions: { level: 6 },
   });
 };
 
-export const convertPdfToEpubFile = async (file: File, options: PdfToEpubOptions): Promise<File> => {
-  const pdfBuffer = await file.arrayBuffer();
+export const convertPdfBytesToEpub = async (
+  pdfBuffer: Uint8Array,
+  options: { title: string; author?: string },
+): Promise<Uint8Array> => {
   const pages = await extractPdfPages(pdfBuffer);
-  const epubBlob = await buildEpub(pages, options);
-  const fileName = file.name.replace(/\.pdf$/i, '.epub');
-  return new File([epubBlob], fileName, { type: 'application/epub+zip' });
+  return buildEpubBuffer(pages, options);
 };

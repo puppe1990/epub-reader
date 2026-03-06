@@ -4,6 +4,7 @@ import { handleBooksList } from './books-list';
 import { handleBooksCreate } from './books-create';
 import { handleBooksData } from './books-data';
 import { handleBooksDelete } from './books-delete';
+import { handleBooksConvertPdf } from './books-convert-pdf';
 import { handleProgressGet } from './progress-get';
 import { handleProgressPut } from './progress-put';
 import { handleUploadsInit } from './uploads-init';
@@ -69,6 +70,11 @@ const route = async (req: Request): Promise<Response> => {
 
   if (segments.length === 4 && segments[3] === 'data') {
     if (method === 'GET') return handleBooksData(bookId);
+    return methodNotAllowed();
+  }
+
+  if (segments.length === 4 && segments[3] === 'convert-pdf') {
+    if (method === 'POST') return handleBooksConvertPdf(bookId);
     return methodNotAllowed();
   }
 

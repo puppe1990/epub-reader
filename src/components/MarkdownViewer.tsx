@@ -28,30 +28,41 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ markdown, title 
   };
 
   return (
-    <div className="w-full h-full flex flex-col bg-white">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 sm:p-4 border-b border-zinc-200 bg-zinc-50">
-        <h2 className="text-sm font-medium text-zinc-700">Markdown Preview</h2>
-        <div className="flex items-center gap-2 w-full sm:w-auto">
+    <div className="flex h-full w-full flex-col bg-[color:var(--surface-muted)]">
+      <div className="flex flex-col gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface-strong)] px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[color:var(--text-muted)]">
+            Saida gerada
+          </p>
+          <h2 className="mt-1 text-sm font-semibold text-[color:var(--text)] sm:text-base">Markdown do livro</h2>
+        </div>
+        <div className="flex w-full items-center gap-2 sm:w-auto">
           <button
             onClick={handleCopy}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-zinc-600 hover:text-zinc-900 bg-white border border-zinc-200 rounded-md hover:bg-zinc-50 transition-colors"
+            className="flex flex-1 items-center justify-center gap-2 rounded-2xl border border-[color:var(--border)] bg-white px-3 py-2.5 text-sm font-semibold text-[color:var(--text)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-muted)] sm:flex-none"
           >
             {copied ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
-            {copied ? 'Copied!' : 'Copy'}
+            {copied ? 'Copiado' : 'Copiar'}
           </button>
           <button
             onClick={handleDownload}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md transition-colors"
+            className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-[color:var(--accent)] px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-[color:var(--accent-strong)] sm:flex-none"
           >
             <Download size={16} />
-            Download .md
+            Baixar .md
           </button>
         </div>
       </div>
-      <div className="flex-1 overflow-auto p-3 sm:p-6 bg-zinc-50">
-        <pre className="max-w-4xl mx-auto p-4 sm:p-6 bg-white rounded-xl shadow-sm border border-zinc-200 whitespace-pre-wrap font-mono text-xs sm:text-sm text-zinc-800 leading-relaxed">
-          {markdown || 'No content to display.'}
-        </pre>
+      <div className="flex-1 overflow-auto px-4 py-4 sm:px-6 sm:py-6">
+        <div className="mx-auto max-w-5xl rounded-[28px] border border-[color:var(--border)] bg-[color:var(--surface-strong)] p-4 shadow-[var(--shadow-card)] sm:p-6">
+          <div className="mb-4 flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-[0.2em] text-[color:var(--text-muted)]">
+            <span className="rounded-full bg-[color:var(--surface-muted)] px-2.5 py-1">Arquivo pronto</span>
+            <span className="rounded-full bg-[color:var(--surface-muted)] px-2.5 py-1">{title}</span>
+          </div>
+          <pre className="whitespace-pre-wrap rounded-[22px] bg-[color:var(--surface-muted)] p-4 font-mono text-xs leading-7 text-[color:var(--text)] sm:p-6 sm:text-sm">
+          {markdown || 'Nenhum conteúdo disponível.'}
+          </pre>
+        </div>
       </div>
     </div>
   );
