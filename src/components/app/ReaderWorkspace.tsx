@@ -1,5 +1,5 @@
 import React, { Suspense, lazy } from 'react';
-import { ArrowLeft, BookOpen, Download, FileText, Loader2, Sparkles } from 'lucide-react';
+import { ArrowLeft, BookOpen, Download, FileText, Loader2, SlidersHorizontal, Sparkles, X } from 'lucide-react';
 import { BookRecord } from '../../services/db';
 import type { ConversionMetrics, ConversionProgress } from '../../services/epubService';
 import { ReaderTheme, formatBytes } from './ui';
@@ -61,6 +61,19 @@ export const ReaderWorkspace = React.memo(function ReaderWorkspace({
   onDownloadSource,
   onConvertBook,
 }: ReaderWorkspaceProps) {
+  const [isReaderSettingsOpen, setIsReaderSettingsOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!isReaderSettingsOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isReaderSettingsOpen]);
+
   return (
     <div className="flex h-dvh w-full overflow-hidden bg-transparent p-2 sm:p-3">
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[28px] border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)] backdrop-blur">
@@ -119,7 +132,7 @@ export const ReaderWorkspace = React.memo(function ReaderWorkspace({
 
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
               {activeSection === 'reader' && isActiveEpub && (
-                <div className="flex flex-col gap-2 md:flex-row">
+                <div className="hidden md:flex md:flex-col md:gap-2 lg:flex-row">
                   <div className="flex items-center overflow-hidden rounded-2xl border border-[color:var(--border)] bg-white/80">
                     <button
                       onClick={() => onSetReaderFontScale((value) => Math.max(85, value - 5))}
@@ -212,47 +225,28 @@ export const ReaderWorkspace = React.memo(function ReaderWorkspace({
           </div>
         </header>
 
-        <main className={`relative flex-1 overflow-hidden ${activeSection === 'reader' ? 'pb-20 md:pb-0' : ''}`}>
+        <main className={`relative flex-1 overflow-hidden ${activeSection === 'reader' ? 'pb-28 md:pb-0' : ''}`}>
           {activeSection === 'reader' && isActiveEpub && (
             <div className="border-b border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-3 md:hidden">
-              <div className="grid gap-2">
-                <div className="flex items-center overflow-hidden rounded-2xl border border-[color:var(--border)] bg-white/80">
-                  <button
-                    onClick={() => onSetReaderFontScale((value) => Math.max(85, value - 5))}
-                    className="flex-1 py-2 text-xs font-semibold text-[color:var(--text)]"
-                  >
-                    A-
-                  </button>
-                  <span className="min-w-[56px] border-x border-[color:var(--border)] px-2 text-center text-[11px] text-[color:var(--text-muted)]">
-                    {readerFontScale}%
-                  </span>
-                  <button
-                    onClick={() => onSetReaderFontScale((value) => Math.min(150, value + 5))}
-                    className="flex-1 py-2 text-xs font-semibold text-[color:var(--text)]"
-                  >
-                    A+
-                  </button>
+              <button
+                onClick={() => setIsReaderSettingsOpen(true)}
+                className="flex w-full items-center justify-between rounded-[24px] border border-[color:var(--border)] bg-white/85 px-4 py-3 text-left shadow-[var(--shadow-card)] transition hover:border-[color:var(--border-strong)] hover:bg-white"
+                aria-haspopup="dialog"
+                aria-expanded={isReaderSettingsOpen}
+                aria-label="Abrir ajustes de leitura"
+              >
+                <div className="min-w-0">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[color:var(--text-muted)]">
+                    Ajustes de leitura
+                  </p>
+                  <p className="mt-1 truncate text-sm font-semibold text-[color:var(--text)]">
+                    {readerTheme === 'light' ? 'Claro' : readerTheme === 'sepia' ? 'Sépia' : 'Noturno'} • {readerFontScale}%
+                  </p>
                 </div>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    ['light', 'Claro'],
-                    ['sepia', 'Sépia'],
-                    ['dark', 'Noturno'],
-                  ].map(([themeValue, label]) => (
-                    <button
-                      key={themeValue}
-                      onClick={() => onSetReaderTheme(themeValue as ReaderTheme)}
-                      className={`h-9 rounded-xl border text-[11px] font-semibold transition ${
-                        readerTheme === themeValue
-                          ? 'border-transparent bg-[color:var(--text)] text-white'
-                          : 'border-[color:var(--border)] bg-white/80 text-[color:var(--text-muted)]'
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
+                <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[color:var(--surface-muted)] text-[color:var(--text)]">
+                  <SlidersHorizontal size={18} />
+                </span>
+              </button>
             </div>
           )}
 
@@ -407,6 +401,90 @@ export const ReaderWorkspace = React.memo(function ReaderWorkspace({
             </button>
           </div>
         </div>
+
+        {isActiveEpub && activeSection === 'reader' && isReaderSettingsOpen && (
+          <div
+            className="fixed inset-0 z-30 flex items-end bg-[color:var(--overlay)]/50 px-3 pb-24 pt-6 md:hidden"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Ajustes de leitura"
+            onClick={() => setIsReaderSettingsOpen(false)}
+          >
+            <div
+              className="w-full rounded-[28px] border border-[color:var(--border)] bg-[color:var(--surface-strong)] p-4 shadow-[var(--shadow-soft)] backdrop-blur"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[color:var(--text-muted)]">
+                    Ajustes de leitura
+                  </p>
+                  <h3
+                    className="mt-1 text-lg font-semibold text-[color:var(--text)]"
+                    style={{ fontFamily: '"Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif' }}
+                  >
+                    Personalize a página atual
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setIsReaderSettingsOpen(false)}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[color:var(--border)] bg-white/80 text-[color:var(--text)]"
+                  aria-label="Fechar ajustes de leitura"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div className="mt-4 rounded-[24px] border border-[color:var(--border)] bg-white/75 p-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
+                  Tamanho do texto
+                </p>
+                <div className="mt-3 flex items-center overflow-hidden rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)]">
+                  <button
+                    onClick={() => onSetReaderFontScale((value) => Math.max(85, value - 5))}
+                    className="flex-1 py-3 text-sm font-semibold text-[color:var(--text)]"
+                  >
+                    A-
+                  </button>
+                  <span className="min-w-[74px] border-x border-[color:var(--border)] px-3 text-center text-sm text-[color:var(--text-muted)]">
+                    {readerFontScale}%
+                  </span>
+                  <button
+                    onClick={() => onSetReaderFontScale((value) => Math.min(150, value + 5))}
+                    className="flex-1 py-3 text-sm font-semibold text-[color:var(--text)]"
+                  >
+                    A+
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-3 rounded-[24px] border border-[color:var(--border)] bg-white/75 p-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
+                  Tema da página
+                </p>
+                <div className="mt-3 grid grid-cols-3 gap-2">
+                  {[
+                    ['light', 'Claro'],
+                    ['sepia', 'Sépia'],
+                    ['dark', 'Noturno'],
+                  ].map(([themeValue, label]) => (
+                    <button
+                      key={themeValue}
+                      onClick={() => onSetReaderTheme(themeValue as ReaderTheme)}
+                      className={`h-11 rounded-2xl border text-sm font-semibold transition ${
+                        readerTheme === themeValue
+                          ? 'border-transparent bg-[color:var(--text)] text-white'
+                          : 'border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)]'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

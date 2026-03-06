@@ -115,7 +115,7 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
         }
 
         body {
-          ${isMobile ? 'padding: 12px 14px 28px !important;' : ''}
+          ${isMobile ? 'padding: 12px 14px 132px !important;' : ''}
           ${isMobile ? 'height: auto !important;' : ''}
           ${isMobile ? 'overflow-y: auto !important;' : ''}
           ${isMobile ? '-webkit-overflow-scrolling: touch !important;' : ''}
