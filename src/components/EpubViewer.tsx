@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import ePub, { Book, Rendition } from 'epubjs';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface EpubViewerProps {
   bookData: ArrayBuffer;
@@ -332,10 +331,6 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
       : theme === 'sepia'
         ? 'border-[rgba(110,86,55,0.18)] bg-[rgba(255,249,238,0.76)] shadow-[0_30px_70px_rgba(114,88,57,0.16)]'
         : 'border-[rgba(71,57,40,0.12)] bg-[rgba(255,253,249,0.74)] shadow-[0_28px_68px_rgba(91,67,39,0.12)]';
-  const navButtonClass =
-    theme === 'dark'
-      ? 'bg-white/10 text-zinc-100 hover:bg-white/16'
-      : 'bg-white/78 text-[color:var(--text)] hover:bg-white';
   const pageBadgeClass =
     theme === 'dark'
       ? 'bg-black/65 text-white'
@@ -345,29 +340,12 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
     <div className={`relative flex h-full w-full items-center justify-center overflow-hidden ${readerSurfaceClass}`}>
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.12),_transparent_34%),radial-gradient(circle_at_bottom,_rgba(0,0,0,0.08),_transparent_38%)]" />
 
-      {!isMobile && (
-        <>
-          <button
-            type="button"
-            aria-label="Previous page"
-            onClick={handlePrev}
-            className="absolute inset-y-0 left-0 z-[5] w-[14%] cursor-w-resize"
-          />
-          <button
-            type="button"
-            aria-label="Next page"
-            onClick={handleNext}
-            className="absolute inset-y-0 right-0 z-[5] w-[14%] cursor-e-resize"
-          />
-        </>
-      )}
-
       <button
+        type="button"
+        aria-label={isMobile ? 'Página anterior' : 'Previous page'}
         onClick={handlePrev}
-        className={`absolute left-3 z-10 rounded-full p-2.5 transition-all sm:left-5 sm:p-3 ${isMobile ? 'bottom-16' : ''} ${isMobile ? 'opacity-80' : ''} ${navButtonClass}`}
-      >
-        <ChevronLeft size={20} className="sm:w-6 sm:h-6" />
-      </button>
+        className={`absolute inset-y-0 left-0 z-[5] ${isMobile ? 'w-[18%] cursor-default bg-transparent' : 'w-[14%] cursor-w-resize'}`}
+      />
 
       <div
         ref={viewerRef}
@@ -375,13 +353,13 @@ export const EpubViewer: React.FC<EpubViewerProps> = ({
       />
 
       <button
+        type="button"
+        aria-label={isMobile ? 'Próxima página' : 'Next page'}
         onClick={handleNext}
-        className={`absolute right-3 z-10 rounded-full p-2.5 transition-all sm:right-5 sm:p-3 ${isMobile ? 'bottom-16' : ''} ${isMobile ? 'opacity-80' : ''} ${navButtonClass}`}
-      >
-        <ChevronRight size={20} className="sm:w-6 sm:h-6" />
-      </button>
+        className={`absolute inset-y-0 right-0 z-[5] ${isMobile ? 'w-[18%] cursor-default bg-transparent' : 'w-[14%] cursor-e-resize'}`}
+      />
 
-      {pageInfo && (
+      {!isMobile && pageInfo && (
         <div className={`absolute bottom-3 left-1/2 z-10 -translate-x-1/2 rounded-full px-3 py-1.5 text-xs backdrop-blur sm:bottom-4 sm:text-sm ${pageBadgeClass}`}>
           {pageInfo.current} / {pageInfo.total}
         </div>
