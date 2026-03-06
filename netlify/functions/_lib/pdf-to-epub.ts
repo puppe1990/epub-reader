@@ -1,5 +1,4 @@
 import JSZip from 'jszip';
-import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 
 const xmlEscape = (value: string): string =>
   value
@@ -21,6 +20,7 @@ const splitIntoChapters = (pages: string[]): string[][] => {
 };
 
 const extractPdfPages = async (pdfBuffer: Uint8Array): Promise<string[]> => {
+  const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
   const loadingTask = pdfjsLib.getDocument({ data: pdfBuffer });
   const pdfDoc = await loadingTask.promise;
   const pages: string[] = [];
