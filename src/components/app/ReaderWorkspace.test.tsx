@@ -40,6 +40,7 @@ describe('ReaderWorkspace', () => {
 
     expect(screen.getByText('Duna')).toBeInTheDocument();
     expect(screen.getByText('Progresso salvo')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /markdown/i }).length).toBeGreaterThan(0);
     expect(await screen.findByText('Visualização incorporada')).toBeInTheDocument();
   });
 });

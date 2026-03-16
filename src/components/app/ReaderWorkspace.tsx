@@ -74,6 +74,7 @@ export const ReaderWorkspace = React.memo(function ReaderWorkspace({
 }: ReaderWorkspaceProps) {
   const [isReaderSettingsOpen, setIsReaderSettingsOpen] = React.useState(false);
   const [isImmersiveMode, setIsImmersiveMode] = React.useState(false);
+  const canConvertToMarkdown = Boolean(activeBook);
 
   React.useEffect(() => {
     if (activeSection !== 'reader') {
@@ -213,7 +214,7 @@ export const ReaderWorkspace = React.memo(function ReaderWorkspace({
                     <BookOpen size={15} />
                     Leitura
                   </button>
-                  {isActiveEpub && (
+                  {canConvertToMarkdown && (
                     <button
                       onClick={() => onSetActiveSection('converter')}
                       className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition ${
@@ -236,7 +237,7 @@ export const ReaderWorkspace = React.memo(function ReaderWorkspace({
                   Baixar original
                 </button>
 
-                {activeSection === 'converter' && isActiveEpub && (
+                {activeSection === 'converter' && canConvertToMarkdown && (
                   <button
                     onClick={onConvertBook}
                     disabled={isConverting}
@@ -334,7 +335,7 @@ export const ReaderWorkspace = React.memo(function ReaderWorkspace({
                       Converter o livro inteiro para Markdown
                     </h3>
                     <p className="mt-1 text-sm text-[color:var(--text-muted)]">
-                      Gere uma base editável para revisão, resumo ou republicação interna.
+                      Gere uma base editável para revisão, resumo ou reaproveitamento interno.
                     </p>
                   </div>
                   <button
@@ -420,14 +421,14 @@ export const ReaderWorkspace = React.memo(function ReaderWorkspace({
 
         {!isImmersiveMode && (
           <div className="fixed inset-x-2 bottom-2 z-20 rounded-[24px] border border-[color:var(--border)] bg-[color:var(--surface-strong)]/95 p-2 shadow-[var(--shadow-card)] backdrop-blur md:hidden">
-          <div className={`grid gap-2 ${isActiveEpub ? 'grid-cols-3' : 'grid-cols-2'}`}>
+          <div className={`grid gap-2 ${canConvertToMarkdown ? 'grid-cols-3' : 'grid-cols-2'}`}>
             <button
               onClick={onBackToLibrary}
               className="h-11 rounded-2xl border border-[color:var(--border)] bg-white/70 text-xs font-semibold text-[color:var(--text)]"
             >
               Biblioteca
             </button>
-            {isActiveEpub && (
+            {canConvertToMarkdown && (
               <button
                 onClick={() => onSetActiveSection('converter')}
                 className="h-11 rounded-2xl bg-[color:var(--accent)] text-xs font-semibold text-white"

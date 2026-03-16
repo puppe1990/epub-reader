@@ -3,6 +3,11 @@ type PdfToEpubOptions = {
   author?: string;
 };
 
+type ConvertPdfToMarkdownOptions = {
+  onProgress?: (progress: import('./epubService').ConversionProgress) => void;
+  title?: string;
+};
+
 type PdfJsModule = typeof import('pdfjs-dist');
 let pdfJsPromise: Promise<PdfJsModule> | null = null;
 let jsZipPromise: Promise<any> | null = null;
@@ -80,6 +85,96 @@ const extractPdfPages = async (pdfBuffer: ArrayBuffer): Promise<string[]> => {
   }
 
   return pages;
+};
+
+export const convertPdfToMarkdownDetailed = async (
+  fileData: ArrayBuffer,
+  options: ConvertPdfToMarkdownOptions = {},
+): Promise<{
+  markdown: string;
+  metrics: import('./epubService').ConversionMetrics;
+  errors: string[];
+}> => {
+  const { onProgress } = options;
+  const startedAt = performance.now();
+  const report = (payload: import('./epubService').ConversionProgress) => {
+    onProgress?.(payload);
+  };
+
+  try {
+    report({ phase: 'initializing', progress: 5, message: 'Preparando extração do PDF...' });
+    const pages = await extractPdfPages(fileData);
+
+    if (pages.length === 0) {
+      const durationMs = performance.now() - startedAt;
+      report({ phase: 'error', progress: 100, message: 'Nenhuma página legível foi encontrada.' });
+      return {
+        markdown: 'Nenhuma página legível foi encontrada neste PDF.',
+        metrics: {
+          totalChapters: 0,
+          convertedChapters: 0,
+          failedChapters: 0,
+          durationMs,
+        },
+        errors: ['Nenhuma página legível foi encontrada neste PDF.'],
+      };
+    }
+
+    report({ phase: 'loading-structure', progress: 18, message: 'Organizando páginas...' });
+
+    const documentTitle = options.title?.trim() || 'Documento PDF';
+    let markdown = `# ${documentTitle}\n\n`;
+
+    for (let index = 0; index < pages.length; index += 1) {
+      const pageNumber = index + 1;
+      report({
+        phase: 'converting',
+        progress: 18 + Math.round((pageNumber / Math.max(pages.length, 1)) * 72),
+        message: `Convertendo página ${pageNumber} de ${pages.length}...`,
+        current: pageNumber,
+        total: pages.length,
+      });
+
+      markdown += `## Página ${pageNumber}\n\n${pages[index]}\n\n`;
+
+      if (pageNumber < pages.length) {
+        markdown += '---\n\n';
+      }
+
+      if (index % 8 === 0) {
+        await new Promise((resolve) => window.setTimeout(resolve, 0));
+      }
+    }
+
+    const durationMs = performance.now() - startedAt;
+    report({ phase: 'finalizing', progress: 95, message: 'Finalizando Markdown...' });
+    report({ phase: 'completed', progress: 100, message: 'Conversão concluída.' });
+
+    return {
+      markdown,
+      metrics: {
+        totalChapters: pages.length,
+        convertedChapters: pages.length,
+        failedChapters: 0,
+        durationMs,
+      },
+      errors: [],
+    };
+  } catch (error) {
+    console.error('Failed to convert PDF to markdown', error);
+    const message = error instanceof Error ? error.message : String(error);
+    report({ phase: 'error', progress: 100, message: 'A conversão falhou.' });
+    return {
+      markdown: `Erro ao converter o PDF para Markdown.\n\n${message}`,
+      metrics: {
+        totalChapters: 0,
+        convertedChapters: 0,
+        failedChapters: 0,
+        durationMs: performance.now() - startedAt,
+      },
+      errors: [message],
+    };
+  }
 };
 
 const buildEpub = async (pages: string[], options: PdfToEpubOptions): Promise<Blob> => {

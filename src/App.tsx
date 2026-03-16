@@ -294,7 +294,7 @@ export default function App() {
   };
 
   const handleConvertBook = async () => {
-    if (!activeBookData) return;
+    if (!activeBookData || !activeBook) return;
     setActiveSection('converter');
     setIsConverting(true);
     setConversionError(null);
@@ -307,9 +307,41 @@ export default function App() {
     });
 
     try {
-      await runBookConversion('buffer');
+      if (activeBook.format === 'pdf') {
+        const { convertPdfToMarkdownDetailed } = await import('./services/pdfToEpubService');
+        const result = await convertPdfToMarkdownDetailed(activeBookData, {
+          onProgress: setConversionProgress,
+          title: activeBook.title,
+        });
+
+        if (result.metrics.convertedChapters === 0) {
+          throw new Error(result.errors[0] || 'Nenhuma página legível foi encontrada neste PDF.');
+        }
+
+        setMarkdownContent(result.markdown.trim() ? result.markdown : 'Nenhum conteúdo foi extraído do PDF.');
+        setConversionMetrics(result.metrics);
+        setConversionDetails(result.errors);
+        setConversionError(null);
+      } else {
+        await runBookConversion('buffer');
+      }
       pushNotice('Markdown gerado com sucesso.', 'success');
     } catch (primaryError) {
+      if (activeBook.format === 'pdf') {
+        const message = primaryError instanceof Error ? primaryError.message : String(primaryError);
+        setConversionError(message);
+        setMarkdownContent(`Erro ao converter o PDF para Markdown.\n\n${message}`);
+        setConversionDetails([message]);
+        setConversionProgress({
+          phase: 'error',
+          progress: 100,
+          message: 'A conversão falhou.',
+        });
+        pushNotice('A conversão não foi concluída.', 'error');
+        setIsConverting(false);
+        return;
+      }
+
       const primaryMessage = primaryError instanceof Error ? primaryError.message : String(primaryError);
       setConversionProgress({
         phase: 'loading-structure',
