@@ -13,10 +13,13 @@ import {
 } from 'lucide-react';
 import { BookRecord } from '../../services/db';
 import type { ConversionMetrics, ConversionProgress } from '../../services/epubService';
-import { ReaderTheme, formatBytes } from './ui';
+import { ReaderMode, ReaderTheme, formatBytes } from './ui';
 
 const EpubViewer = lazy(() =>
   import('../EpubViewer').then((module) => ({ default: module.EpubViewer })),
+);
+const ReflowEpubViewer = lazy(() =>
+  import('../ReflowEpubViewer').then((module) => ({ default: module.ReflowEpubViewer })),
 );
 const MarkdownViewer = lazy(() =>
   import('../MarkdownViewer').then((module) => ({ default: module.MarkdownViewer })),
@@ -31,8 +34,10 @@ interface ReaderWorkspaceProps {
   activeSection: 'reader' | 'converter';
   isActiveEpub: boolean;
   readerFontScale: number;
+  readerMode: ReaderMode;
   readerTheme: ReaderTheme;
   location: string | number;
+  reflowSectionIndex: number;
   markdownContent: string;
   isConverting: boolean;
   conversionProgress: ConversionProgress;
@@ -43,8 +48,13 @@ interface ReaderWorkspaceProps {
   onBackToLibrary: () => void;
   onSetActiveSection: (section: 'reader' | 'converter') => void;
   onSetReaderFontScale: React.Dispatch<React.SetStateAction<number>>;
+  onSetReaderMode: (mode: ReaderMode) => void;
   onSetReaderTheme: (theme: ReaderTheme) => void;
   onLocationChange: (location: string, href: string) => void;
+  onReflowSectionChange: (sectionIndex: number, href: string) => void;
+  onReflowProgressSnapshotChange: (snapshot: { sectionIndex: number; href: string; scrollTop: number; anchorId?: string }) => void;
+  initialReflowScrollTop?: number;
+  initialReflowAnchorId?: string;
   onDownloadSource: () => void;
   onConvertBook: () => void;
 }
@@ -55,8 +65,10 @@ export const ReaderWorkspace = React.memo(function ReaderWorkspace({
   activeSection,
   isActiveEpub,
   readerFontScale,
+  readerMode,
   readerTheme,
   location,
+  reflowSectionIndex,
   markdownContent,
   isConverting,
   conversionProgress,
@@ -67,8 +79,13 @@ export const ReaderWorkspace = React.memo(function ReaderWorkspace({
   onBackToLibrary,
   onSetActiveSection,
   onSetReaderFontScale,
+  onSetReaderMode,
   onSetReaderTheme,
   onLocationChange,
+  onReflowSectionChange,
+  onReflowProgressSnapshotChange,
+  initialReflowScrollTop,
+  initialReflowAnchorId,
   onDownloadSource,
   onConvertBook,
 }: ReaderWorkspaceProps) {
@@ -160,6 +177,24 @@ export const ReaderWorkspace = React.memo(function ReaderWorkspace({
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
               {activeSection === 'reader' && isActiveEpub && (
                 <div className="hidden md:flex md:flex-col md:gap-2 lg:flex-row">
+                  <div className="flex items-center gap-1 rounded-2xl border border-[color:var(--border)] bg-white/80 p-1">
+                    {[
+                      ['epub', 'EPUB original'],
+                      ['reflow', 'Modo reflow'],
+                    ].map(([modeValue, label]) => (
+                      <button
+                        key={modeValue}
+                        onClick={() => onSetReaderMode(modeValue as ReaderMode)}
+                        className={`rounded-xl px-3 py-2 text-[11px] font-semibold transition ${
+                          readerMode === modeValue
+                            ? 'bg-[color:var(--text)] text-white'
+                            : 'text-[color:var(--text-muted)] hover:bg-[color:var(--surface-muted)]'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
                   <div className="flex items-center overflow-hidden rounded-2xl border border-[color:var(--border)] bg-white/80">
                     <button
                       onClick={() => onSetReaderFontScale((value) => Math.max(85, value - 5))}
@@ -302,15 +337,29 @@ export const ReaderWorkspace = React.memo(function ReaderWorkspace({
                 </div>
               }
             >
-              <EpubViewer
-                bookData={activeBookData}
-                location={location}
-                fontScale={readerFontScale}
-                theme={readerTheme}
-                onLocationChange={onLocationChange}
-                onTocReady={() => {}}
-                onBookReady={() => {}}
-              />
+              {readerMode === 'reflow' ? (
+                <ReflowEpubViewer
+                  bookData={activeBookData}
+                  bookId={activeBook?.id || 'unknown-book'}
+                  sectionIndex={reflowSectionIndex}
+                  fontScale={readerFontScale}
+                  theme={readerTheme}
+                  onSectionChange={onReflowSectionChange}
+                  onProgressSnapshotChange={onReflowProgressSnapshotChange}
+                  initialScrollTop={initialReflowScrollTop}
+                  initialAnchorId={initialReflowAnchorId}
+                />
+              ) : (
+                <EpubViewer
+                  bookData={activeBookData}
+                  location={location}
+                  fontScale={readerFontScale}
+                  theme={readerTheme}
+                  onLocationChange={onLocationChange}
+                  onTocReady={() => {}}
+                  onBookReady={() => {}}
+                />
+              )}
             </Suspense>
           ) : activeSection === 'reader' ? (
             <Suspense
@@ -500,6 +549,30 @@ export const ReaderWorkspace = React.memo(function ReaderWorkspace({
                   >
                     A+
                   </button>
+                </div>
+              </div>
+
+              <div className="mt-3 rounded-[24px] border border-[color:var(--border)] bg-white/75 p-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
+                  Modo de leitura
+                </p>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  {[
+                    ['epub', 'EPUB original'],
+                    ['reflow', 'Modo reflow'],
+                  ].map(([modeValue, label]) => (
+                    <button
+                      key={modeValue}
+                      onClick={() => onSetReaderMode(modeValue as ReaderMode)}
+                      className={`h-11 rounded-2xl border text-sm font-semibold transition ${
+                        readerMode === modeValue
+                          ? 'border-transparent bg-[color:var(--text)] text-white'
+                          : 'border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)]'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
                 </div>
               </div>
 

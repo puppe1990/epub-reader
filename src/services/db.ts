@@ -14,7 +14,15 @@ export interface BookRecord {
 export interface ReadingProgress {
   locationCfi: string;
   href?: string;
+  extraState?: unknown;
   updatedAt: number;
+}
+
+export interface ReflowReadingState {
+  mode: 'reflow';
+  sectionIndex: number;
+  scrollTop: number;
+  anchorId?: string;
 }
 
 export interface LibraryTaskStatus {
@@ -116,12 +124,14 @@ export const saveReadingProgress = async (
   bookId: string,
   locationCfi: string,
   href?: string,
+  extraState?: unknown,
 ): Promise<ReadingProgress> => {
   return request<ReadingProgress>(`/books/${encodeURIComponent(bookId)}/progress`, {
     method: 'PUT',
     body: JSON.stringify({
       locationCfi,
       href,
+      extraState,
       updatedAtClient: Date.now(),
     }),
   });

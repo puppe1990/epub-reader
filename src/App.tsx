@@ -8,6 +8,7 @@ import {
   getBooks,
   LibraryTaskStatus,
   getReadingProgress,
+  ReflowReadingState,
   saveBook,
   saveReadingProgress,
 } from './services/db';
@@ -15,7 +16,7 @@ import type { ConversionMetrics, ConversionProgress } from './services/epubServi
 import { LibraryView } from './components/app/LibraryView';
 import { NoticeStack } from './components/app/NoticeStack';
 import { ReaderWorkspace } from './components/app/ReaderWorkspace';
-import { Notice, NoticeTone, ReaderTheme } from './components/app/ui';
+import { Notice, NoticeTone, ReaderMode, ReaderTheme } from './components/app/ui';
 
 export default function App() {
   const [books, setBooks] = useState<Omit<BookRecord, 'data'>[]>([]);
@@ -36,6 +37,15 @@ export default function App() {
     if (stored === 'sepia' || stored === 'dark' || stored === 'light') return stored;
     return 'light';
   });
+  const [readerMode, setReaderMode] = useState<ReaderMode>(() => {
+    if (typeof window === 'undefined') return 'epub';
+    const stored = window.localStorage.getItem('reader-mode');
+    return stored === 'reflow' ? 'reflow' : 'epub';
+  });
+  const [reflowSectionIndex, setReflowSectionIndex] = useState<number>(0);
+  const [reflowScrollTop, setReflowScrollTop] = useState<number>(0);
+  const [reflowAnchorId, setReflowAnchorId] = useState<string | undefined>(undefined);
+  const [readingProgressExtra, setReadingProgressExtra] = useState<unknown>(undefined);
   const [activeSection, setActiveSection] = useState<'reader' | 'converter'>('reader');
   const [markdownContent, setMarkdownContent] = useState('');
   const [isConverting, setIsConverting] = useState(false);
@@ -104,6 +114,10 @@ export default function App() {
   useEffect(() => {
     window.localStorage.setItem('reader-theme', readerTheme);
   }, [readerTheme]);
+
+  useEffect(() => {
+    window.localStorage.setItem('reader-mode', readerMode);
+  }, [readerMode]);
 
   const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -185,8 +199,36 @@ export default function App() {
 
       setActiveBookId(id);
       setActiveBookData(data);
-      setLocation(progress?.locationCfi || '');
+      const savedLocation = progress?.locationCfi || '';
+      setLocation(savedLocation);
       setLocationHref(progress?.href || '');
+      setReadingProgressExtra(progress?.extraState);
+      if (savedLocation.startsWith('reflow:')) {
+        setReaderMode('reflow');
+      }
+      const reflowState = progress?.extraState as Partial<ReflowReadingState> | undefined;
+      setReflowScrollTop(
+        reflowState?.mode === 'reflow' && typeof reflowState.scrollTop === 'number'
+          ? reflowState.scrollTop
+          : 0,
+      );
+      setReflowAnchorId(
+        reflowState?.mode === 'reflow' && typeof reflowState.anchorId === 'string'
+          ? reflowState.anchorId
+          : undefined,
+      );
+      const storedReflowSection = window.localStorage.getItem(`reflow-section:${id}`);
+      const reflowFromProgress = savedLocation.startsWith('reflow:')
+        ? Number.parseInt(savedLocation.slice('reflow:'.length), 10)
+        : Number.NaN;
+      const parsedReflowSection = Number.isFinite(reflowFromProgress)
+        ? reflowFromProgress
+        : storedReflowSection
+          ? Number.parseInt(storedReflowSection, 10)
+          : 0;
+      setReflowSectionIndex(
+        Number.isFinite(parsedReflowSection) && parsedReflowSection >= 0 ? parsedReflowSection : 0,
+      );
       setActiveSection('reader');
       setMarkdownContent('');
       setSyncStatus(progress ? 'saved' : 'idle');
@@ -204,6 +246,10 @@ export default function App() {
     setActiveBookData(null);
     setLocation('');
     setLocationHref('');
+    setReflowSectionIndex(0);
+    setReflowScrollTop(0);
+    setReflowAnchorId(undefined);
+    setReadingProgressExtra(undefined);
     setMarkdownContent('');
     setActiveSection('reader');
   };
@@ -222,6 +268,9 @@ export default function App() {
     }
   };
 
+  const activeBook = books.find((book) => book.id === activeBookId);
+  const isActiveEpub = activeBook?.format !== 'pdf';
+
   useEffect(() => {
     const activeBookFormat = books.find((book) => book.id === activeBookId)?.format;
     if (!activeBookId || !activeBookData || typeof location !== 'string' || !location.trim()) return;
@@ -234,7 +283,7 @@ export default function App() {
     progressSaveTimerRef.current = window.setTimeout(async () => {
       setSyncStatus('saving');
       try {
-        await saveReadingProgress(activeBookId, location, locationHref || undefined);
+        await saveReadingProgress(activeBookId, location, locationHref || undefined, readingProgressExtra);
         progressErrorShownRef.current = false;
         setSyncStatus('saved');
       } catch (error) {
@@ -255,7 +304,12 @@ export default function App() {
         window.clearTimeout(progressSaveTimerRef.current);
       }
     };
-  }, [activeBookData, activeBookId, books, location, locationHref]);
+  }, [activeBookData, activeBookId, books, location, locationHref, readingProgressExtra]);
+
+  useEffect(() => {
+    if (!activeBookId || !isActiveEpub) return;
+    window.localStorage.setItem(`reflow-section:${activeBookId}`, String(reflowSectionIndex));
+  }, [activeBookId, isActiveEpub, reflowSectionIndex]);
 
   const runBookConversion = async (mode: 'buffer' | 'blob-url') => {
     if (!activeBookData) throw new Error('O arquivo do livro não está carregado.');
@@ -384,9 +438,6 @@ export default function App() {
     URL.revokeObjectURL(url);
   };
 
-  const activeBook = books.find((book) => book.id === activeBookId);
-  const isActiveEpub = activeBook?.format !== 'pdf';
-
   const filteredBooks = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     const searched = books.filter((book) => {
@@ -416,8 +467,10 @@ export default function App() {
           activeSection={activeSection}
           isActiveEpub={isActiveEpub}
           readerFontScale={readerFontScale}
+          readerMode={readerMode}
           readerTheme={readerTheme}
           location={location}
+          reflowSectionIndex={reflowSectionIndex}
           markdownContent={markdownContent}
           isConverting={isConverting}
           conversionProgress={conversionProgress}
@@ -428,11 +481,40 @@ export default function App() {
           onBackToLibrary={handleBackToLibrary}
           onSetActiveSection={setActiveSection}
           onSetReaderFontScale={setReaderFontScale}
+          onSetReaderMode={setReaderMode}
           onSetReaderTheme={setReaderTheme}
           onLocationChange={(loc, href) => {
             setLocation(loc);
             setLocationHref(href);
           }}
+          onReflowSectionChange={(sectionIndex, href) => {
+            setReflowSectionIndex(sectionIndex);
+            setLocation(`reflow:${sectionIndex}`);
+            setLocationHref(href);
+            setReadingProgressExtra({
+              mode: 'reflow',
+              sectionIndex,
+              scrollTop: 0,
+              anchorId: undefined,
+            } satisfies ReflowReadingState);
+            setReflowScrollTop(0);
+            setReflowAnchorId(undefined);
+          }}
+          onReflowProgressSnapshotChange={({ sectionIndex, href, scrollTop, anchorId }) => {
+            setReflowSectionIndex(sectionIndex);
+            setLocation(`reflow:${sectionIndex}`);
+            setLocationHref(href);
+            setReflowScrollTop(scrollTop);
+            setReflowAnchorId(anchorId);
+            setReadingProgressExtra({
+              mode: 'reflow',
+              sectionIndex,
+              scrollTop,
+              anchorId,
+            } satisfies ReflowReadingState);
+          }}
+          initialReflowScrollTop={reflowScrollTop}
+          initialReflowAnchorId={reflowAnchorId}
           onDownloadSource={handleDownloadSource}
           onConvertBook={handleConvertBook}
         />

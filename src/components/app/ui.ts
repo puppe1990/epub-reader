@@ -1,4 +1,5 @@
 export type ReaderTheme = 'light' | 'sepia' | 'dark';
+export type ReaderMode = 'epub' | 'reflow';
 export type NoticeTone = 'info' | 'success' | 'error';
 
 export interface Notice {

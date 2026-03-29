@@ -4,13 +4,14 @@ import { json } from './_lib/http';
 type ProgressRow = {
   location_cfi: string;
   href: string | null;
+  extra_state: string | null;
   updated_at: number;
 };
 
 export const handleProgressGet = async (bookId: string): Promise<Response> => {
   const db = getDb();
   const result = await db.execute({
-    sql: 'SELECT location_cfi, href, updated_at FROM reading_progress WHERE book_id = ? LIMIT 1',
+    sql: 'SELECT location_cfi, href, extra_state, updated_at FROM reading_progress WHERE book_id = ? LIMIT 1',
     args: [bookId],
   });
 
@@ -19,9 +20,19 @@ export const handleProgressGet = async (bookId: string): Promise<Response> => {
     return json(null);
   }
 
+  let extraState: unknown;
+  if (row.extra_state) {
+    try {
+      extraState = JSON.parse(row.extra_state);
+    } catch {
+      extraState = undefined;
+    }
+  }
+
   return json({
     locationCfi: row.location_cfi,
     href: row.href ?? undefined,
+    extraState,
     updatedAt: Number(row.updated_at),
   });
 };

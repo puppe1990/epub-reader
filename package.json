@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "npx netlify dev --no-open",
     "dev:netlify": "npx netlify dev --no-open",
+    "db:migrate": "node --env-file=.env scripts/db-migrate.mjs",
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist",
@@ -14,6 +15,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@chenglou/pretext": "^0.0.2",
     "@libsql/client": "^0.17.0",
     "@netlify/blobs": "^10.7.0",
     "@netlify/functions": "^5.1.2",

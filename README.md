@@ -40,12 +40,19 @@ Copie `.env.example` para `.env` e configure:
 
 ## Banco de dados
 
-A migration inicial e a migration de storage em blobs estão em:
+A migration inicial, a migration de storage em blobs e a migration do estado extra de leitura estão em:
 
 - `db/migrations/001_init.sql`
 - `db/migrations/002_blob_storage.sql`
+- `db/migrations/003_reading_progress_extra_state.sql`
 
-Aplique ambos no Turso antes de usar a aplicação em produção.
+Para aplicar tudo no banco configurado no `.env`:
+
+```bash
+npm run db:migrate
+```
+
+O runner é idempotente: ele cria `schema_migrations`, detecta colunas já existentes e só aplica o que estiver faltando.
 
 ## Como rodar
 
@@ -69,6 +76,7 @@ npm run dev
 
 - `npm run dev`: sobe o app completo com `Netlify Dev` em `http://localhost:8888`
 - `npm run dev:vite`: sobe somente o Vite em `http://localhost:8889`
+- `npm run db:migrate`: aplica as migrations pendentes no Turso usando o `.env`
 
 Observações importantes:
 
@@ -89,6 +97,7 @@ lsof -tiTCP:8889 -sTCP:LISTEN | xargs kill
 - `npm run dev`: roda app completo (Netlify proxy + Vite + Functions) em `http://localhost:8888`
 - `npm run dev:vite`: roda somente o Vite em `http://localhost:8889`
 - `npm run dev:netlify`: alias de `npm run dev`
+- `npm run db:migrate`: aplica migrations pendentes no Turso
 - `npm run build`: gera build de produção
 - `npm run preview`: serve o build localmente
 - `npm run lint`: checagem de tipos com TypeScript (`tsc --noEmit`)
@@ -131,6 +140,10 @@ db/
   migrations/
     001_init.sql
     002_blob_storage.sql
+    003_reading_progress_extra_state.sql
+
+scripts/
+  db-migrate.mjs
 ```
 
 ## Observações
